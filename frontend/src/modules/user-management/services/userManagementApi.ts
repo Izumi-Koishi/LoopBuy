@@ -57,7 +57,7 @@ class UserManagementApiService {
     }
   }
 
-  // 封禁用户
+  // 封禁用户 - 与后端API对齐
   async banUser(userId: number, params: UserManageParams): Promise<UserManageResponse> {
     try {
       if (!params.reason || params.reason.trim() === '') {
@@ -65,37 +65,46 @@ class UserManagementApiService {
           success: false,
           error: {
             code: 'INVALID_REASON',
-            message: '封禁原因不能为空'
+            message: '封禁原因不能为空',
+            userTip: '请填写封禁原因'
           }
         };
       }
 
-      const response = await api.put(`/admin/users/${userId}/ban`, params);
+      const response = await api.post(`/admin/users/${userId}/ban`, params);
       return response.data;
     } catch (error: any) {
       console.error('封禁用户失败:', error);
+      if (error.response?.data) {
+        return error.response.data;
+      }
       return {
         success: false,
         error: {
           code: 'BAN_USER_ERROR',
-          message: error.response?.data?.message || '封禁用户失败'
+          message: '封禁用户失败',
+          userTip: '请稍后重试或联系管理员'
         }
       };
     }
   }
 
-  // 解封用户
+  // 解封用户 - 与后端API对齐
   async unbanUser(userId: number, params: UserManageParams = {}): Promise<UserManageResponse> {
     try {
-      const response = await api.put(`/admin/users/${userId}/unban`, params);
+      const response = await api.post(`/admin/users/${userId}/unban`, params);
       return response.data;
     } catch (error: any) {
       console.error('解封用户失败:', error);
+      if (error.response?.data) {
+        return error.response.data;
+      }
       return {
         success: false,
         error: {
           code: 'UNBAN_USER_ERROR',
-          message: error.response?.data?.message || '解封用户失败'
+          message: '解封用户失败',
+          userTip: '请稍后重试或联系管理员'
         }
       };
     }
@@ -114,7 +123,7 @@ class UserManagementApiService {
         };
       }
 
-      const response = await api.put(`/admin/users/${userId}/mute`, params);
+      const response = await api.post(`/admin/users/${userId}/mute`, params);
       return response.data;
     } catch (error: any) {
       console.error('禁言用户失败:', error);
@@ -131,7 +140,7 @@ class UserManagementApiService {
   // 解除禁言
   async unmuteUser(userId: number, params: UserManageParams = {}): Promise<UserManageResponse> {
     try {
-      const response = await api.put(`/admin/users/${userId}/unmute`, params);
+      const response = await api.post(`/admin/users/${userId}/unmute`, params);
       return response.data;
     } catch (error: any) {
       console.error('解除禁言失败:', error);
@@ -200,26 +209,35 @@ class UserManagementApiService {
     }
   }
 
-  // 获取用户统计信息
+  // 获取用户统计信息 - 从仪表盘API获取
   async getUserStats(): Promise<UserStats> {
     try {
-      const response = await api.get('/admin/users/stats');
-      if (response.data.success) {
-        return response.data.data;
+      const response = await api.get('/admin/dashboard/stats');
+      if (response.data.success && response.data.data) {
+        const dashboardData = response.data.data;
+        return {
+          totalUsers: dashboardData.overview.totalUsers,
+          activeUsers: dashboardData.overview.totalActiveUsers,
+          bannedUsers: dashboardData.userStats.bannedUsers,
+          mutedUsers: dashboardData.userStats.mutedUsers,
+          newUsersToday: dashboardData.userStats.newUsersToday,
+          newUsersThisWeek: dashboardData.userStats.newUsersThisWeek,
+          newUsersThisMonth: dashboardData.userStats.newUsersThisMonth
+        };
       } else {
         throw new Error(response.data.error?.message || '获取统计信息失败');
       }
     } catch (error: any) {
       console.error('获取用户统计失败:', error);
-      // 返回模拟数据
+      // 返回默认数据
       return {
-        totalUsers: 1248,
-        activeUsers: 1156,
-        bannedUsers: 45,
-        mutedUsers: 47,
-        newUsersToday: 23,
-        newUsersThisWeek: 156,
-        newUsersThisMonth: 678
+        totalUsers: 0,
+        activeUsers: 0,
+        bannedUsers: 0,
+        mutedUsers: 0,
+        newUsersToday: 0,
+        newUsersThisWeek: 0,
+        newUsersThisMonth: 0
       };
     }
   }

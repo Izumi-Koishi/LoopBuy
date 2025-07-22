@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../auth/contexts/AuthContext';
+import AdminLayout from '../../../shared/components/AdminLayout';
 import AuditLogFilters from '../components/AuditLogFilters';
 import AuditLogList from '../components/AuditLogList';
 import AuditLogStats from '../components/AuditLogStats';
@@ -15,9 +16,10 @@ import {
   TargetTypeOption
 } from '../types/audit-log';
 import './AuditLogPage.css';
+import '../../../shared/styles/admin-pages.css';
 
 const AuditLogPage: React.FC = () => {
-  const { admin, logout } = useAuth();
+  const { admin } = useAuth();
   
   // 页面状态
   const [state, setState] = useState<AuditLogPageState>({
@@ -205,21 +207,18 @@ const AuditLogPage: React.FC = () => {
     }
   };
 
-  // 登出
-  const handleLogout = () => {
-    logout();
-  };
+
 
   return (
-    <div className="audit-log-page">
-      {/* 页面头部 */}
-      <div className="page-header">
-        <div className="header-content">
-          <div className="title-section">
+    <AdminLayout>
+      <div className="audit-log-page">
+        {/* 页面头部 */}
+        <div className="page-header">
+          <div className="page-title-section">
             <h1 className="page-title">审计日志</h1>
             <p className="page-subtitle">查看系统操作日志，监控管理员行为</p>
           </div>
-          <div className="header-actions">
+          <div className="page-actions">
             <button onClick={handleRefresh} className="refresh-btn" disabled={state.loading}>
               {state.loading ? '刷新中...' : '刷新数据'}
             </button>
@@ -229,15 +228,8 @@ const AuditLogPage: React.FC = () => {
             <button onClick={() => handleExport('excel')} className="export-btn">
               导出Excel
             </button>
-            <span className="admin-info">
-              管理员：{admin?.realName || admin?.username}
-            </span>
-            <button onClick={handleLogout} className="logout-btn">
-              退出登录
-            </button>
           </div>
         </div>
-      </div>
 
       {/* 页面内容 */}
       <div className="page-content">
@@ -274,7 +266,8 @@ const AuditLogPage: React.FC = () => {
         auditLog={state.selectedLog}
         onClose={handleCloseDetail}
       />
-    </div>
+      </div>
+    </AdminLayout>
   );
 };
 

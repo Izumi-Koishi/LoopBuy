@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../auth/contexts/AuthContext';
+import AdminLayout from '../../../shared/components/AdminLayout';
 import UserFilters from '../components/UserFilters';
 import UserList from '../components/UserList';
 import UserActionModal from '../components/UserActionModal';
@@ -14,9 +15,10 @@ import {
   UserStats
 } from '../types/user-management';
 import './UserManagementPage.css';
+import '../../../shared/styles/admin-pages.css';
 
 const UserManagementPage: React.FC = () => {
-  const { admin, logout } = useAuth();
+  const { admin } = useAuth();
   
   // 页面状态
   const [state, setState] = useState<UserManagementState>({
@@ -196,11 +198,6 @@ const UserManagementPage: React.FC = () => {
     fetchUserStats();
   };
 
-  // 登出
-  const handleLogout = () => {
-    logout();
-  };
-
   // 获取选中用户的用户名
   const getSelectedUsernames = (): string[] => {
     return state.selectedUserIds.map(id => {
@@ -237,27 +234,20 @@ const UserManagementPage: React.FC = () => {
   };
 
   return (
-    <div className="user-management-page">
-      {/* 页面头部 */}
-      <div className="page-header">
-        <div className="header-content">
-          <div className="title-section">
+    <AdminLayout>
+      <div className="user-management-page">
+        {/* 页面头部 */}
+        <div className="page-header">
+          <div className="page-title-section">
             <h1 className="page-title">用户管理</h1>
             <p className="page-subtitle">管理平台用户，进行封禁、禁言等操作</p>
           </div>
-          <div className="header-actions">
+          <div className="page-actions">
             <button onClick={handleRefresh} className="refresh-btn" disabled={state.loading}>
               {state.loading ? '刷新中...' : '刷新数据'}
             </button>
-            <span className="admin-info">
-              管理员：{admin?.realName || admin?.username}
-            </span>
-            <button onClick={handleLogout} className="logout-btn">
-              退出登录
-            </button>
           </div>
         </div>
-      </div>
 
       {/* 页面内容 */}
       <div className="page-content">
@@ -335,7 +325,8 @@ const UserManagementPage: React.FC = () => {
           loading={state.loading}
         />
       )}
-    </div>
+      </div>
+    </AdminLayout>
   );
 };
 

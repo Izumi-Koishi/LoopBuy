@@ -57,24 +57,32 @@ class ProductManagementApiService {
     }
   }
 
-  // 审核通过商品
+  // 审核商品 - 与后端API对齐
   async approveProduct(productId: number, params: ProductManageParams = {}): Promise<ProductManageResponse> {
     try {
-      const response = await api.put(`/admin/products/${productId}/approve`, params);
+      const requestData = {
+        action: 'APPROVE',
+        reason: params.reason || ''
+      };
+      const response = await api.post(`/admin/products/${productId}/approve`, requestData);
       return response.data;
     } catch (error: any) {
       console.error('审核通过商品失败:', error);
+      if (error.response?.data) {
+        return error.response.data;
+      }
       return {
         success: false,
         error: {
           code: 'APPROVE_PRODUCT_ERROR',
-          message: error.response?.data?.message || '审核通过商品失败'
+          message: '审核通过商品失败',
+          userTip: '请稍后重试或联系管理员'
         }
       };
     }
   }
 
-  // 审核拒绝商品
+  // 审核拒绝商品 - 与后端API对齐
   async rejectProduct(productId: number, params: ProductManageParams): Promise<ProductManageResponse> {
     try {
       if (!params.reason || params.reason.trim() === '') {
@@ -82,54 +90,74 @@ class ProductManagementApiService {
           success: false,
           error: {
             code: 'INVALID_REASON',
-            message: '拒绝原因不能为空'
+            message: '拒绝原因不能为空',
+            userTip: '请填写拒绝原因'
           }
         };
       }
 
-      const response = await api.put(`/admin/products/${productId}/reject`, params);
+      const requestData = {
+        action: 'REJECT',
+        reason: params.reason
+      };
+      const response = await api.post(`/admin/products/${productId}/approve`, requestData);
       return response.data;
     } catch (error: any) {
       console.error('审核拒绝商品失败:', error);
+      if (error.response?.data) {
+        return error.response.data;
+      }
       return {
         success: false,
         error: {
           code: 'REJECT_PRODUCT_ERROR',
-          message: error.response?.data?.message || '审核拒绝商品失败'
+          message: '审核拒绝商品失败',
+          userTip: '请稍后重试或联系管理员'
         }
       };
     }
   }
 
-  // 下架商品
+  // 下架商品 - 与后端API对齐
   async delistProduct(productId: number, params: ProductManageParams = {}): Promise<ProductManageResponse> {
     try {
-      const response = await api.put(`/admin/products/${productId}/delist`, params);
+      const requestData = {
+        reason: params.reason || '管理员下架'
+      };
+      const response = await api.post(`/admin/products/${productId}/remove`, requestData);
       return response.data;
     } catch (error: any) {
       console.error('下架商品失败:', error);
+      if (error.response?.data) {
+        return error.response.data;
+      }
       return {
         success: false,
         error: {
           code: 'DELIST_PRODUCT_ERROR',
-          message: error.response?.data?.message || '下架商品失败'
+          message: '下架商品失败',
+          userTip: '请稍后重试或联系管理员'
         }
       };
     }
   }
 
-  // 删除商品
+  // 删除商品 - 与后端API对齐
   async deleteProduct(productId: number): Promise<ProductManageResponse> {
     try {
       const response = await api.delete(`/admin/products/${productId}`);
       return response.data;
     } catch (error: any) {
       console.error('删除商品失败:', error);
+      if (error.response?.data) {
+        return error.response.data;
+      }
       return {
         success: false,
         error: {
           code: 'DELETE_PRODUCT_ERROR',
-          message: error.response?.data?.message || '删除商品失败'
+          message: '删除商品失败',
+          userTip: '请稍后重试或联系管理员'
         }
       };
     }
@@ -193,7 +221,20 @@ class ProductManagementApiService {
   // 获取商品分类列表（用于筛选）
   async getCategories(): Promise<Array<{ label: string; value: number }>> {
     try {
-      // 这里应该调用分类API，暂时返回模拟数据
+      const response = await api.get('/categories/');
+      if (response.data.success && response.data.data) {
+        const categories = response.data.data.map((category: any) => ({
+          label: category.name,
+          value: category.id
+        }));
+        // 添加"全部分类"选项
+        return [{ label: '全部分类', value: 0 }, ...categories];
+      } else {
+        throw new Error('获取分类数据失败');
+      }
+    } catch (error) {
+      console.error('获取分类列表失败:', error);
+      // 返回默认分类选项
       return [
         { label: '全部分类', value: 0 },
         { label: '电子产品', value: 1 },
@@ -202,9 +243,6 @@ class ProductManagementApiService {
         { label: '服装配饰', value: 4 },
         { label: '运动器材', value: 5 }
       ];
-    } catch (error) {
-      console.error('获取分类列表失败:', error);
-      return [{ label: '全部分类', value: 0 }];
     }
   }
 }

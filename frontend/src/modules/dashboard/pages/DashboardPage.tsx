@@ -1,19 +1,93 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../auth/contexts/AuthContext';
-import DashboardLayout, { DashboardGrid, DashboardCard, DashboardRow, DashboardCol } from '../components/layout/DashboardLayout';
+import AdminLayout from '../../../shared/components/AdminLayout';
+import { DashboardGrid, DashboardCard, DashboardRow, DashboardCol } from '../components/layout/DashboardLayout';
 import StatCard from '../components/cards/StatCard';
 import LineChart from '../components/charts/LineChart';
 import PieChart from '../components/charts/PieChart';
 import BarChart from '../components/charts/BarChart';
 import dashboardApi from '../services/dashboardApi';
-import { DashboardData } from '../types/dashboard';
+import { DashboardData, BackendDashboardData } from '../types/dashboard';
 import './DashboardPage.css';
+import '../../../shared/styles/admin-pages.css';
 
 const DashboardPage: React.FC = () => {
-  const { admin, logout } = useAuth();
+  const { admin } = useAuth();
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // 将后端数据转换为前端格式
+  const convertBackendDataToFrontend = (backendData: BackendDashboardData): DashboardData => {
+    return {
+      stats: {
+        totalUsers: backendData.overview.totalUsers,
+        todayNewUsers: backendData.userStats.newUsersToday,
+        totalProducts: backendData.overview.totalProducts,
+        todayNewProducts: backendData.productStats.newProductsToday,
+        totalTransactions: 0, // 后端暂无此数据，使用默认值
+        todayTransactionAmount: 0, // 后端暂无此数据，使用默认值
+        activeUsers: backendData.overview.totalActiveUsers,
+        platformGrowthRate: backendData.userStats.userGrowthRate
+      },
+      userTrend: {
+        registrationTrend: backendData.userTrend.map(item => ({
+          date: item.date,
+          value: item.value
+        })),
+        activeTrend: backendData.userTrend.map(item => ({
+          date: item.date,
+          value: item.value
+        }))
+      },
+      productTrend: {
+        publishTrend: backendData.productTrend.map(item => ({
+          date: item.date,
+          value: item.value
+        })),
+        soldTrend: backendData.productTrend.map(item => ({
+          date: item.date,
+          value: Math.floor(item.value * 0.3) // 模拟已售数据
+        }))
+      },
+      transactionTrend: {
+        volumeTrend: backendData.activityTrend.map(item => ({
+          date: item.date,
+          value: Math.floor(item.value * 0.5) // 模拟交易量数据
+        })),
+        amountTrend: backendData.activityTrend.map(item => ({
+          date: item.date,
+          value: item.value * 100 // 模拟交易金额数据
+        }))
+      },
+      categoryDistribution: [
+        { name: '电子产品', value: Math.floor(backendData.overview.totalProducts * 0.35), percentage: 35.2 },
+        { name: '图书教材', value: Math.floor(backendData.overview.totalProducts * 0.26), percentage: 26.4 },
+        { name: '生活用品', value: Math.floor(backendData.overview.totalProducts * 0.17), percentage: 17.4 },
+        { name: '服装配饰', value: Math.floor(backendData.overview.totalProducts * 0.13), percentage: 12.8 },
+        { name: '运动器材', value: Math.floor(backendData.overview.totalProducts * 0.08), percentage: 8.2 }
+      ],
+      productStatusDistribution: {
+        onSale: backendData.productStats.onSaleProducts,
+        sold: backendData.productStats.soldProducts,
+        draft: backendData.overview.totalPendingProducts,
+        offline: backendData.productStats.removedProducts
+      },
+      userActivityDistribution: {
+        veryActive: Math.floor(backendData.overview.totalActiveUsers * 0.2),
+        active: Math.floor(backendData.overview.totalActiveUsers * 0.5),
+        inactive: backendData.overview.totalUsers - backendData.overview.totalActiveUsers
+      },
+      popularProducts: [
+        { id: 1, title: 'iPhone 13 Pro', category: '电子产品', price: 6999, viewCount: 234, favoriteCount: 45 },
+        { id: 2, title: '高等数学教材', category: '图书教材', price: 45, viewCount: 189, favoriteCount: 32 },
+        { id: 3, title: 'Nike运动鞋', category: '服装配饰', price: 299, viewCount: 156, favoriteCount: 28 },
+        { id: 4, title: '台式电脑主机', category: '电子产品', price: 3200, viewCount: 145, favoriteCount: 25 },
+        { id: 5, title: '宿舍小冰箱', category: '生活用品', price: 280, viewCount: 134, favoriteCount: 22 }
+      ],
+      lastUpdated: backendData.lastUpdateTime
+    };
+  };
 
   // 获取仪表盘数据
   const fetchDashboardData = async () => {
@@ -21,11 +95,30 @@ const DashboardPage: React.FC = () => {
     setError(null);
 
     try {
-      // 暂时使用模拟数据，实际项目中会调用真实API
-      const mockData = dashboardApi.generateMockData();
-      setDashboardData(mockData);
+      // 调用真实API
+      const response = await dashboardApi.getDashboardData();
+
+      console.log('🔍 API响应完整数据:', response);
+      console.log('🔍 response.success:', response.success);
+      console.log('🔍 response.data:', response.data);
+      console.log('🔍 response.error:', response.error);
+
+      if (response.success && response.data) {
+        // 转换后端数据为前端格式
+        const convertedData = convertBackendDataToFrontend(response.data);
+        setDashboardData(convertedData);
+        console.log('✅ 成功获取真实仪表盘数据:', response.data);
+      } else {
+        // API调用失败，显示错误而不是模拟数据
+        console.error('❌ 仪表盘API调用失败:', response);
+        console.error('❌ 错误详情:', response.error);
+        setError(`获取仪表盘数据失败: ${response.error?.message || response.message || '未知错误'}`);
+        setDashboardData(null);
+      }
     } catch (err: any) {
-      setError(err.message || '获取数据失败');
+      console.error('❌ 获取仪表盘数据异常:', err);
+      setError(`获取仪表盘数据异常: ${err.message}`);
+      setDashboardData(null);
     } finally {
       setLoading(false);
     }
@@ -33,17 +126,27 @@ const DashboardPage: React.FC = () => {
 
   // 组件挂载时获取数据
   useEffect(() => {
+    console.log('🔍 仪表盘页面初始化');
+    const token = localStorage.getItem('admin_token');
+    const adminInfo = localStorage.getItem('admin_info');
+    console.log('🔍 localStorage中的token:', token ? `${token.substring(0, 20)}...` : 'null');
+    console.log('🔍 localStorage中的admin_info:', adminInfo);
+    console.log('🔍 AuthContext中的admin:', admin);
+
+    // 检查登录状态
+    if (!token || !admin) {
+      console.log('❌ 用户未登录，重定向到登录页面');
+      window.location.href = '/login';
+      return;
+    }
+
+    console.log('✅ 用户已登录，开始获取仪表盘数据');
     fetchDashboardData();
-  }, []);
+  }, [admin]);
 
   // 刷新数据
   const handleRefresh = () => {
     fetchDashboardData();
-  };
-
-  // 登出处理
-  const handleLogout = () => {
-    logout();
   };
 
   // 格式化货币
@@ -54,54 +157,44 @@ const DashboardPage: React.FC = () => {
 
   if (error) {
     return (
-      <DashboardLayout
-        title="数据仪表盘"
-        subtitle="Shiwu校园二手交易平台管理系统"
-        actions={
-          <div className="dashboard-header-actions">
-            <button onClick={handleRefresh} className="refresh-btn">
-              重新加载
-            </button>
-            <span className="admin-info">
-              欢迎，{admin?.realName || admin?.username}
-            </span>
-            <button onClick={handleLogout} className="logout-btn">
-              退出登录
-            </button>
+      <AdminLayout>
+        <div className="dashboard-page">
+          <div className="page-header">
+            <h1 className="page-title">数据仪表盘</h1>
+            <div className="page-actions">
+              <button onClick={handleRefresh} className="refresh-btn">
+                重新加载
+              </button>
+            </div>
           </div>
-        }
-      >
-        <div className="error-container">
-          <div className="error-message">
-            <h3>数据加载失败</h3>
-            <p>{error}</p>
-            <button onClick={handleRefresh} className="retry-btn">
-              重试
-            </button>
+          <div className="error-container">
+            <div className="error-message">
+              <h3>数据加载失败</h3>
+              <p>{error}</p>
+              <button onClick={handleRefresh} className="retry-btn">
+                重试
+              </button>
+            </div>
           </div>
         </div>
-      </DashboardLayout>
+      </AdminLayout>
     );
   }
 
   return (
-    <DashboardLayout
-      title="数据仪表盘"
-      subtitle="Shiwu校园二手交易平台管理系统"
-      actions={
-        <div className="dashboard-header-actions">
-          <button onClick={handleRefresh} className="refresh-btn" disabled={loading}>
-            {loading ? '加载中...' : '刷新数据'}
-          </button>
-          <span className="admin-info">
-            欢迎，{admin?.realName || admin?.username}
-          </span>
-          <button onClick={handleLogout} className="logout-btn">
-            退出登录
-          </button>
+    <AdminLayout>
+      <div className="dashboard-page">
+        <div className="page-header">
+          <div className="page-title-section">
+            <h1 className="page-title">数据仪表盘</h1>
+            <p className="page-subtitle">Shiwu校园二手交易平台管理系统</p>
+          </div>
+          <div className="page-actions">
+            <button onClick={handleRefresh} className="refresh-btn" disabled={loading}>
+              {loading ? '加载中...' : '刷新数据'}
+            </button>
+          </div>
         </div>
-      }
-    >
       {/* 统计卡片区域 */}
       <DashboardGrid columns={4}>
         <StatCard
@@ -230,12 +323,14 @@ const DashboardPage: React.FC = () => {
       </DashboardRow>
 
       {/* 数据更新时间 */}
-      {dashboardData && (
-        <div className="dashboard-footer">
-          <p>数据更新时间: {new Date(dashboardData.lastUpdated).toLocaleString('zh-CN')}</p>
-        </div>
-      )}
-    </DashboardLayout>
+        {/* 数据更新时间 */}
+        {dashboardData && (
+          <div className="dashboard-footer">
+            <p>数据更新时间: {new Date(dashboardData.lastUpdated).toLocaleString('zh-CN')}</p>
+          </div>
+        )}
+      </div>
+    </AdminLayout>
   );
 };
 

@@ -50,16 +50,8 @@ public class Application {
 
             logger.info("✅ 已配置Webapp: {}", webappDir.getAbsolutePath());
 
-            // 手动注册AdminController
-            try {
-                Class<?> adminControllerClass = Class.forName("com.shiwu.admin.controller.AdminController");
-                Object adminController = adminControllerClass.getDeclaredConstructor().newInstance();
-                tomcat.addServlet("", "AdminController", (javax.servlet.Servlet) adminController);
-                context.addServletMappingDecoded("/api/admin/*", "AdminController");
-                logger.info("✅ 已注册AdminController: /api/admin/*");
-            } catch (Exception e) {
-                logger.warn("❌ 注册AdminController失败: {}", e.getMessage());
-            }
+            // 注册所有Controller
+            registerControllers(tomcat, context);
 
             // 启动Tomcat
             logger.info("正在启动Shiwu校园二手交易平台...");
@@ -86,6 +78,49 @@ public class Application {
         } catch (Exception e) {
             logger.error("应用程序启动失败", e);
             System.exit(1);
+        }
+    }
+
+    /**
+     * 注册所有Controller
+     */
+    private static void registerControllers(Tomcat tomcat, Context context) {
+        String[] controllerClasses = {
+            "com.shiwu.admin.controller.AdminController",
+            "com.shiwu.admin.controller.AdminProductController",
+            "com.shiwu.admin.controller.AdminUserController",
+            "com.shiwu.admin.controller.AuditLogController",
+            "com.shiwu.admin.controller.DashboardController",
+            "com.shiwu.user.controller.UserController",
+            "com.shiwu.product.controller.ProductController",
+            "com.shiwu.message.controller.MessageController",
+            "com.shiwu.order.controller.OrderController",
+            "com.shiwu.cart.controller.CartController",
+            "com.shiwu.review.controller.ReviewController",
+            "com.shiwu.payment.controller.PaymentController",
+            "com.shiwu.notification.controller.NotificationController"
+        };
+
+        for (String className : controllerClasses) {
+            try {
+                Class<?> controllerClass = Class.forName(className);
+                Object controller = controllerClass.getDeclaredConstructor().newInstance();
+
+                // 获取@WebServlet注解的URL模式
+                javax.servlet.annotation.WebServlet webServlet =
+                    controllerClass.getAnnotation(javax.servlet.annotation.WebServlet.class);
+
+                if (webServlet != null && webServlet.value().length > 0) {
+                    String servletName = controllerClass.getSimpleName();
+                    String urlPattern = webServlet.value()[0];
+
+                    tomcat.addServlet("", servletName, (javax.servlet.Servlet) controller);
+                    context.addServletMappingDecoded(urlPattern, servletName);
+                    logger.info("✅ 已注册{}: {}", servletName, urlPattern);
+                }
+            } catch (Exception e) {
+                logger.warn("❌ 注册{}失败: {}", className, e.getMessage());
+            }
         }
     }
 }

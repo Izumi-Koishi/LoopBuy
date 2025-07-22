@@ -1,21 +1,92 @@
 import api from '../../../shared/services/baseApi';
+import axios from 'axios';
+
+// 创建专门用于仪表盘API的axios实例
+const dashboardAxios = axios.create({
+  baseURL: '/admin', // 仪表盘API的基础路径
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// 为仪表盘API添加请求拦截器，自动添加token
+dashboardAxios.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('admin_token');
+    console.log('🔍 dashboardAxios请求拦截器 - token:', token ? `${token.substring(0, 20)}...` : 'null');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+      console.log('🔍 dashboardAxios请求拦截器 - 已设置Authorization header');
+    } else {
+      console.log('❌ dashboardAxios请求拦截器 - 没有token');
+    }
+    console.log('🔍 dashboardAxios请求拦截器 - 最终headers:', config.headers);
+    return config;
+  },
+  (error) => {
+    console.error('❌ dashboardAxios请求拦截器错误:', error);
+    return Promise.reject(error);
+  }
+);
 import { DashboardResponse, DashboardData } from '../types/dashboard';
 
 // 仪表盘API服务类
 class DashboardApiService {
   
-  // 获取仪表盘统计数据
+  // 获取仪表盘统计数据 - 与后端API对齐
   async getDashboardData(): Promise<DashboardResponse> {
     try {
-      const response = await api.get<DashboardResponse>('/admin/dashboard/stats');
+      // 获取token
+      const token = localStorage.getItem('admin_token');
+      console.log('仪表盘API调用 - Token存在:', !!token);
+      console.log('仪表盘API调用 - Token完整内容:', token);
+      console.log('仪表盘API调用 - localStorage所有内容:', {
+        admin_token: localStorage.getItem('admin_token'),
+        admin_info: localStorage.getItem('admin_info')
+      });
+
+      if (!token) {
+        console.error('仪表盘API调用失败: 没有找到认证token');
+        return {
+          success: false,
+          error: {
+            code: 'NO_TOKEN',
+            message: '未找到认证token，请重新登录',
+            userTip: '请重新登录'
+          }
+        };
+      }
+
+      // 调用仪表盘API（通过专用的dashboardApi实例）
+      const url = '/dashboard/stats';
+      console.log('仪表盘API调用 - 请求URL:', url);
+      console.log('仪表盘API调用 - 使用dashboardApi实例，会自动添加token');
+      const response = await dashboardAxios.get(url);
+
+      console.log('仪表盘API调用 - 响应状态:', response.status);
+      console.log('仪表盘API调用 - 响应数据:', response.data);
+      console.log('仪表盘API调用 - 响应数据类型:', typeof response.data);
+      console.log('仪表盘API调用 - 响应数据JSON:', JSON.stringify(response.data, null, 2));
+
       return response.data;
     } catch (error: any) {
-      console.error('获取仪表盘数据失败:', error);
+      console.error('❌ 获取仪表盘数据失败:', error);
+      console.error('❌ 错误详情:', error.response?.data || error.message);
+      console.error('❌ 请求配置:', error.config);
+      console.error('❌ 响应状态:', error.response?.status);
+      console.error('❌ 响应头:', error.response?.headers);
+
+      if (error.response?.data) {
+        console.error('❌ 后端返回的错误:', error.response.data);
+        return error.response.data;
+      }
       return {
         success: false,
         error: {
           code: 'DASHBOARD_ERROR',
-          message: error.response?.data?.message || '获取仪表盘数据失败'
+          message: `获取仪表盘数据失败: ${error.message}`,
+          userTip: '请稍后重试或联系管理员'
         }
       };
     }

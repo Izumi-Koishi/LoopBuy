@@ -40,7 +40,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     try {
       const response = await authApi.adminLogin({ username, password });
-      
+
       if (response.success && response.data) {
         // 登录成功，保存用户信息和token
         setAdmin(response.data);
@@ -54,6 +54,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return false;
       }
     } catch (error: any) {
+      console.error('登录错误:', error);
       setError('网络连接失败，请稍后重试');
       return false;
     } finally {

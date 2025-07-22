@@ -75,28 +75,12 @@ class AuditLogApiService {
       return response.data;
     } catch (error: any) {
       console.error('获取审计日志统计失败:', error);
-      // 返回模拟数据
+      // 返回默认数据
       return {
-        success: true,
-        data: {
-          totalLogs: 15420,
-          successLogs: 14856,
-          failureLogs: 564,
-          todayLogs: 234,
-          weekLogs: 1678,
-          monthLogs: 7234,
-          topActions: [
-            { action: 'ADMIN_LOGIN', actionDescription: '管理员登录', count: 456 },
-            { action: 'USER_BAN', actionDescription: '封禁用户', count: 234 },
-            { action: 'PRODUCT_APPROVE', actionDescription: '审核通过商品', count: 189 },
-            { action: 'AUDIT_LOG_VIEW', actionDescription: '查看审计日志', count: 167 },
-            { action: 'USER_MUTE', actionDescription: '禁言用户', count: 123 }
-          ],
-          topAdmins: [
-            { adminId: 1, adminUsername: 'admin', count: 1234 },
-            { adminId: 2, adminUsername: 'manager', count: 567 },
-            { adminId: 3, adminUsername: 'operator', count: 234 }
-          ]
+        success: false,
+        error: {
+          code: 'STATS_ERROR',
+          message: '获取统计数据失败'
         }
       };
     }

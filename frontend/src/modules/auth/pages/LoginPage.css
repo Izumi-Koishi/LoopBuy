@@ -83,6 +83,18 @@
   cursor: not-allowed;
 }
 
+.form-group input.error {
+  border-color: #e53e3e;
+  box-shadow: 0 0 0 3px rgba(229, 62, 62, 0.1);
+}
+
+.field-error {
+  color: #e53e3e;
+  font-size: 12px;
+  margin-top: 4px;
+  display: block;
+}
+
 .password-input {
   position: relative;
   display: flex;

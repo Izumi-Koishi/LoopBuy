@@ -2,9 +2,9 @@ import React from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import LoginPage from './modules/auth/pages/LoginPage'
 import DashboardPage from './modules/dashboard/pages/DashboardPage'
-import ProductManagementPage from './modules/product-management/pages/ProductManagementPage'
-import UserManagementPage from './modules/user-management/pages/UserManagementPage'
-import AuditLogPage from './modules/audit-log/pages/AuditLogPage'
+import ProductManagementPageFinal from './modules/product-management/pages/ProductManagementPageFinal'
+import UserManagementPageFinal from './modules/user-management/pages/UserManagementPageFinal'
+import AuditLogPageFinal from './modules/audit-log/pages/AuditLogPageFinal'
 import { AuthProvider } from './modules/auth/contexts/AuthContext'
 import ProtectedRoute from './modules/auth/components/ProtectedRoute'
 import './App.css'
@@ -28,7 +28,7 @@ function App() {
               path="/products"
               element={
                 <ProtectedRoute>
-                  <ProductManagementPage />
+                  <ProductManagementPageFinal />
                 </ProtectedRoute>
               }
             />
@@ -36,7 +36,7 @@ function App() {
               path="/users"
               element={
                 <ProtectedRoute>
-                  <UserManagementPage />
+                  <UserManagementPageFinal />
                 </ProtectedRoute>
               }
             />
@@ -44,7 +44,7 @@ function App() {
               path="/audit-logs"
               element={
                 <ProtectedRoute>
-                  <AuditLogPage />
+                  <AuditLogPageFinal />
                 </ProtectedRoute>
               }
             />

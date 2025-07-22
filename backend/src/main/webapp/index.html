@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shiwu校园二手交易平台 - API服务</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            text-align: center;
+            max-width: 600px;
+            margin: 20px;
+        }
+        .logo {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+        .status {
+            background: #e8f5e8;
+            color: #2d5a2d;
+            padding: 12px 20px;
+            border-radius: 6px;
+            margin-bottom: 30px;
+            font-weight: 500;
+        }
+        .api-info {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        .api-info h3 {
+            margin-top: 0;
+            color: #333;
+            font-size: 18px;
+        }
+        .api-endpoint {
+            font-family: 'Courier New', monospace;
+            background: #e9ecef;
+            padding: 8px 12px;
+            border-radius: 4px;
+            margin: 8px 0;
+            font-size: 14px;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            color: #888;
+            font-size: 14px;
+        }
+        .link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">🛒</div>
+        <h1>Shiwu校园二手交易平台</h1>
+        <p class="subtitle">后端API服务正在运行</p>
+        
+        <div class="status">
+            ✅ 服务状态：正常运行
+        </div>
+        
+        <div class="api-info">
+            <h3>🔧 API端点</h3>
+            <div class="api-endpoint">GET /api/admin/status - 健康检查</div>
+            <div class="api-endpoint">POST /api/admin/login - 管理员登录</div>
+            <div class="api-endpoint">GET /api/admin/dashboard - 仪表盘数据</div>
+            <div class="api-endpoint">GET /api/admin/products - 商品管理</div>
+            <div class="api-endpoint">GET /api/admin/users - 用户管理</div>
+            <div class="api-endpoint">GET /api/admin/audit-logs - 审计日志</div>
+        </div>
+        
+        <div class="api-info">
+            <h3>🌐 前端访问</h3>
+            <p>管理后台前端地址：<a href="http://localhost:3000" class="link" target="_blank">http://localhost:3000</a></p>
+            <p>测试账号：admin / admin123</p>
+        </div>
+        
+        <div class="api-info">
+            <h3>📊 系统信息</h3>
+            <p><strong>服务器：</strong>Apache Tomcat 9.0.75</p>
+            <p><strong>Java版本：</strong>Java 8+</p>
+            <p><strong>数据库：</strong>MySQL 8.0</p>
+            <p><strong>API版本：</strong>v1.0</p>
+        </div>
+        
+        <div class="footer">
+            <p>© 2024 Shiwu校园二手交易平台 - 后端API服务</p>
+            <p>如需技术支持，请联系系统管理员</p>
+        </div>
+    </div>
+    
+    <script>
+        // 简单的健康检查
+        fetch('/api/admin/status')
+            .then(response => response.json())
+            .then(data => {
+                console.log('API健康检查:', data);
+            })
+            .catch(error => {
+                console.log('API健康检查失败:', error);
+            });
+    </script>
+</body>
+</html>

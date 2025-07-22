@@ -4,18 +4,11 @@ export interface AdminLoginRequest {
   password: string;
 }
 
-// 管理员信息类型
+// 管理员信息类型 - 根据后端API文档更新
 export interface AdminVO {
-  id: number;
+  adminId: number;
   username: string;
-  email: string;
-  realName: string;
   role: string;
-  roleDescription: string;
-  status: number;
-  lastLoginTime: string | null;
-  loginCount: number;
-  createTime: string;
   token: string;
 }
 

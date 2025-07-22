@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import './LoginPage.css';
@@ -7,25 +7,47 @@ const LoginPage: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<{username?: string, password?: string}>({});
   const { admin, login, isLoading, error } = useAuth();
+
+  // 清除验证错误
+  useEffect(() => {
+    if (username || password) {
+      setValidationErrors({});
+    }
+  }, [username, password]);
 
   // 如果已经登录，重定向到仪表板
   if (admin) {
     return <Navigate to="/dashboard" replace />;
   }
 
+  // 表单验证函数
+  const validateForm = (): boolean => {
+    const errors: {username?: string, password?: string} = {};
+
+    if (!username.trim()) {
+      errors.username = '请输入用户名';
+    } else if (username.trim().length < 2) {
+      errors.username = '用户名至少需要2个字符';
+    }
+
+    if (!password.trim()) {
+      errors.password = '请输入密码';
+    } else if (password.length < 6) {
+      errors.password = '密码至少需要6个字符';
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   // 处理表单提交
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // 基本验证
-    if (!username.trim()) {
-      alert('请输入用户名');
-      return;
-    }
-    
-    if (!password.trim()) {
-      alert('请输入密码');
+
+    // 表单验证
+    if (!validateForm()) {
       return;
     }
 
@@ -56,9 +78,13 @@ const LoginPage: React.FC = () => {
               placeholder="请输入管理员用户名"
               disabled={isLoading}
               autoComplete="username"
+              className={validationErrors.username ? 'error' : ''}
             />
+            {validationErrors.username && (
+              <span className="field-error">{validationErrors.username}</span>
+            )}
           </div>
-          
+
           <div className="form-group">
             <label htmlFor="password">密码</label>
             <div className="password-input">
@@ -70,16 +96,21 @@ const LoginPage: React.FC = () => {
                 placeholder="请输入密码"
                 disabled={isLoading}
                 autoComplete="current-password"
+                className={validationErrors.password ? 'error' : ''}
               />
               <button
                 type="button"
                 className="password-toggle"
                 onClick={() => setShowPassword(!showPassword)}
                 disabled={isLoading}
+                aria-label={showPassword ? '隐藏密码' : '显示密码'}
               >
-                {showPassword ? '隐藏' : '显示'}
+                {showPassword ? '👁️' : '👁️‍🗨️'}
               </button>
             </div>
+            {validationErrors.password && (
+              <span className="field-error">{validationErrors.password}</span>
+            )}
           </div>
           
           {error && (

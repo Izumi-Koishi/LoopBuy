@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../auth/contexts/AuthContext';
+import AdminLayout from '../../../shared/components/AdminLayout';
 import ProductFilters from '../components/ProductFilters';
 import ProductList from '../components/ProductList';
 import ProductAuditModal from '../components/ProductAuditModal';
@@ -13,9 +14,10 @@ import {
   ProductManagementState
 } from '../types/product-management';
 import './ProductManagementPage.css';
+import '../../../shared/styles/admin-pages.css';
 
 const ProductManagementPage: React.FC = () => {
-  const { admin, logout } = useAuth();
+  const { admin } = useAuth();
   
   // 页面状态
   const [state, setState] = useState<ProductManagementState>({
@@ -180,11 +182,6 @@ const ProductManagementPage: React.FC = () => {
     fetchProducts();
   };
 
-  // 登出
-  const handleLogout = () => {
-    logout();
-  };
-
   // 获取选中商品的标题
   const getSelectedProductTitles = (): string[] => {
     return state.selectedProductIds.map(id => {
@@ -194,27 +191,20 @@ const ProductManagementPage: React.FC = () => {
   };
 
   return (
-    <div className="product-management-page">
-      {/* 页面头部 */}
-      <div className="page-header">
-        <div className="header-content">
-          <div className="title-section">
+    <AdminLayout>
+      <div className="product-management-page">
+        {/* 页面头部 */}
+        <div className="page-header">
+          <div className="page-title-section">
             <h1 className="page-title">商品审核与管理</h1>
             <p className="page-subtitle">管理平台商品，进行审核、下架、删除等操作</p>
           </div>
-          <div className="header-actions">
+          <div className="page-actions">
             <button onClick={handleRefresh} className="refresh-btn" disabled={state.loading}>
               {state.loading ? '刷新中...' : '刷新数据'}
             </button>
-            <span className="admin-info">
-              管理员：{admin?.realName || admin?.username}
-            </span>
-            <button onClick={handleLogout} className="logout-btn">
-              退出登录
-            </button>
           </div>
         </div>
-      </div>
 
       {/* 页面内容 */}
       <div className="page-content">
@@ -289,7 +279,8 @@ const ProductManagementPage: React.FC = () => {
           loading={state.loading}
         />
       )}
-    </div>
+      </div>
+    </AdminLayout>
   );
 };
 

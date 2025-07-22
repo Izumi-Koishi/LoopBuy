@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API测试页面</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .result {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .success {
+            border-color: #28a745;
+            background-color: #d4edda;
+        }
+        .error {
+            border-color: #dc3545;
+            background-color: #f8d7da;
+        }
+        .login-section {
+            background: #e7f3ff;
+            border-color: #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Shiwu管理后台 API测试</h1>
+        
+        <!-- 登录测试 -->
+        <div class="test-section login-section">
+            <h3>🔐 管理员登录测试</h3>
+            <button onclick="testLogin()">测试登录</button>
+            <button onclick="testStatus()">测试状态检查</button>
+            <div id="login-result" class="result"></div>
+        </div>
+
+        <!-- 仪表盘测试 -->
+        <div class="test-section">
+            <h3>📊 仪表盘数据测试</h3>
+            <button onclick="testDashboard()">测试仪表盘数据</button>
+            <div id="dashboard-result" class="result"></div>
+        </div>
+
+        <!-- 用户管理测试 -->
+        <div class="test-section">
+            <h3>👥 用户管理测试</h3>
+            <button onclick="testUsers()">测试用户列表</button>
+            <div id="users-result" class="result"></div>
+        </div>
+
+        <!-- 商品管理测试 -->
+        <div class="test-section">
+            <h3>🛍️ 商品管理测试</h3>
+            <button onclick="testProducts()">测试商品列表</button>
+            <button onclick="testCategories()">测试分类列表</button>
+            <div id="products-result" class="result"></div>
+        </div>
+
+        <!-- 审计日志测试 -->
+        <div class="test-section">
+            <h3>📋 审计日志测试</h3>
+            <button onclick="testAuditLogs()">测试审计日志</button>
+            <button onclick="testAuditStats()">测试审计统计</button>
+            <div id="audit-result" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        let authToken = '';
+        const API_BASE = 'http://localhost:8080/api';
+
+        // 显示结果
+        function showResult(elementId, data, isSuccess = true) {
+            const element = document.getElementById(elementId);
+            element.textContent = JSON.stringify(data, null, 2);
+            element.className = `result ${isSuccess ? 'success' : 'error'}`;
+        }
+
+        // 测试登录
+        async function testLogin() {
+            try {
+                const response = await fetch(`${API_BASE}/admin/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: 'admin',
+                        password: 'admin123'
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.success && data.data && data.data.token) {
+                    authToken = data.data.token;
+                    showResult('login-result', {
+                        status: '登录成功',
+                        token: authToken.substring(0, 50) + '...',
+                        admin: data.data.admin
+                    }, true);
+                } else {
+                    showResult('login-result', data, false);
+                }
+            } catch (error) {
+                showResult('login-result', { error: error.message }, false);
+            }
+        }
+
+        // 测试状态检查
+        async function testStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/admin/status`);
+                const data = await response.json();
+                showResult('login-result', data, data.success);
+            } catch (error) {
+                showResult('login-result', { error: error.message }, false);
+            }
+        }
+
+        // 测试仪表盘
+        async function testDashboard() {
+            if (!authToken) {
+                showResult('dashboard-result', { error: '请先登录获取token' }, false);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/admin/dashboard/stats`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                const data = await response.json();
+                showResult('dashboard-result', data, data.success);
+            } catch (error) {
+                showResult('dashboard-result', { error: error.message }, false);
+            }
+        }
+
+        // 测试用户列表
+        async function testUsers() {
+            if (!authToken) {
+                showResult('users-result', { error: '请先登录获取token' }, false);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/admin/users?pageNum=1&pageSize=5`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                const data = await response.json();
+                showResult('users-result', data, data.success);
+            } catch (error) {
+                showResult('users-result', { error: error.message }, false);
+            }
+        }
+
+        // 测试商品列表
+        async function testProducts() {
+            if (!authToken) {
+                showResult('products-result', { error: '请先登录获取token' }, false);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/admin/products?pageNum=1&pageSize=5`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                const data = await response.json();
+                showResult('products-result', data, data.success);
+            } catch (error) {
+                showResult('products-result', { error: error.message }, false);
+            }
+        }
+
+        // 测试分类列表
+        async function testCategories() {
+            try {
+                const response = await fetch(`${API_BASE}/categories/`);
+                const data = await response.json();
+                showResult('products-result', {
+                    categories: data,
+                    note: '分类API不需要认证'
+                }, data.success);
+            } catch (error) {
+                showResult('products-result', { error: error.message }, false);
+            }
+        }
+
+        // 测试审计日志
+        async function testAuditLogs() {
+            if (!authToken) {
+                showResult('audit-result', { error: '请先登录获取token' }, false);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/admin/audit-logs?page=1&pageSize=5`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                const data = await response.json();
+                showResult('audit-result', data, data.success);
+            } catch (error) {
+                showResult('audit-result', { error: error.message }, false);
+            }
+        }
+
+        // 测试审计统计
+        async function testAuditStats() {
+            if (!authToken) {
+                showResult('audit-result', { error: '请先登录获取token' }, false);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/admin/audit-logs/stats?days=7`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                const data = await response.json();
+                showResult('audit-result', data, data.success);
+            } catch (error) {
+                showResult('audit-result', { error: error.message }, false);
+            }
+        }
+
+        // 页面加载时自动测试状态
+        window.onload = function() {
+            testStatus();
+        };
+    </script>
+</body>
+</html>

@@ -5,7 +5,6 @@ import com.shiwu.cart.service.CartService;
 import com.shiwu.cart.service.impl.CartServiceImpl;
 import com.shiwu.common.result.Result;
 import com.shiwu.common.util.JsonUtil;
-import com.shiwu.common.util.JwtUtil;
 import com.shiwu.framework.annotation.Autowired;
 import com.shiwu.framework.annotation.Controller;
 import com.shiwu.framework.annotation.PathVariable;
@@ -238,23 +237,7 @@ public class CartController extends BaseController {
 
     // ==================== 工具方法 ====================
 
-    /**
-     * 获取当前用户ID
-     */
-    protected Long getCurrentUserId(HttpServletRequest request) {
-        try {
-            String token = request.getHeader("Authorization");
-            if (token != null && token.startsWith("Bearer ")) {
-                token = token.substring(7);
-                if (JwtUtil.validateToken(token)) {
-                    return JwtUtil.getUserIdFromToken(token);
-                }
-            }
-        } catch (Exception e) {
-            logger.warn("获取用户ID失败: {}", e.getMessage());
-        }
-        return null;
-    }
+    // getCurrentUserId方法已在BaseController中实现，无需重复定义
 
     /**
      * 读取请求体

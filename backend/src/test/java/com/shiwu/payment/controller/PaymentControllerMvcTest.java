@@ -1,7 +1,6 @@
 package com.shiwu.payment.controller;
 
 import com.shiwu.common.result.Result;
-import com.shiwu.payment.controller.PaymentController;
 import com.shiwu.payment.service.PaymentService;
 import com.shiwu.payment.service.impl.PaymentServiceImpl;
 import org.junit.jupiter.api.*;
@@ -10,7 +9,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import java.io.BufferedReader;
 import java.io.PrintWriter;
 import java.io.StringReader;
@@ -37,7 +35,6 @@ public class PaymentControllerMvcTest {
     private PaymentService paymentService;
     private HttpServletRequest request;
     private HttpServletResponse response;
-    private HttpSession session;
     private StringWriter responseWriter;
     
     @BeforeEach
@@ -52,16 +49,15 @@ public class PaymentControllerMvcTest {
         // 创建Mock对象
         request = mock(HttpServletRequest.class);
         response = mock(HttpServletResponse.class);
-        session = mock(HttpSession.class);
         
         // 设置响应Writer
         responseWriter = new StringWriter();
         PrintWriter printWriter = new PrintWriter(responseWriter);
         when(response.getWriter()).thenReturn(printWriter);
         
-        // 设置用户登录状态
-        when(request.getSession(false)).thenReturn(session);
-        when(session.getAttribute("userId")).thenReturn(1L);
+        // 设置用户JWT认证状态
+        when(request.getAttribute("userId")).thenReturn(1L);
+        when(request.getHeader("Authorization")).thenReturn("Bearer mock_jwt_token_for_user_1");
         
         logger.info("PaymentController MVC测试环境初始化完成");
     }

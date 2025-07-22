@@ -8,7 +8,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
@@ -45,15 +44,16 @@ public class OrderControllerMvcTest {
     }
 
     /**
-     * 创建模拟的HttpServletRequest
+     * 创建模拟的HttpServletRequest（使用JWT认证）
      */
     private HttpServletRequest createMockRequest(Long userId) {
         HttpServletRequest request = mock(HttpServletRequest.class);
-        HttpSession session = mock(HttpSession.class);
-        
-        when(request.getSession(false)).thenReturn(session);
-        when(session.getAttribute("userId")).thenReturn(userId);
-        
+
+        // 模拟JWT Token认证
+        when(request.getAttribute("userId")).thenReturn(userId);
+        String token = "Bearer mock_jwt_token_for_user_" + userId;
+        when(request.getHeader("Authorization")).thenReturn(token);
+
         return request;
     }
 

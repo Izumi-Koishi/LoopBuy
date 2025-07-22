@@ -675,14 +675,15 @@ public class ProductControllerMvcTest extends TestBase {
     // ==================== 工具方法 ====================
 
     /**
-     * 模拟用户会话
+     * 模拟用户JWT认证
      */
     private void mockUserSession(HttpServletRequest request, Long userId) {
-        javax.servlet.http.HttpSession session = mock(javax.servlet.http.HttpSession.class);
-        when(request.getSession(false)).thenReturn(session);
-        when(session.getAttribute("userId")).thenReturn(userId);
-        // RequestUtil.getCurrentUserId从request.getAttribute获取userId
+        // 模拟JWT Token认证，RequestUtil.getCurrentUserId从request.getAttribute获取userId
         when(request.getAttribute("userId")).thenReturn(userId);
+
+        // 模拟Authorization头
+        String token = "Bearer mock_jwt_token_for_user_" + userId;
+        when(request.getHeader("Authorization")).thenReturn(token);
     }
 
     /**

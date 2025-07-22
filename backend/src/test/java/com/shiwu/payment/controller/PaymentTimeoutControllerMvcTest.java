@@ -51,9 +51,9 @@ public class PaymentTimeoutControllerMvcTest {
         PrintWriter printWriter = new PrintWriter(responseWriter);
         when(response.getWriter()).thenReturn(printWriter);
         
-        // 设置管理员登录状态
-        when(request.getSession(false)).thenReturn(session);
-        when(session.getAttribute("userRole")).thenReturn("admin");
+        // 设置管理员JWT认证状态
+        when(request.getHeader("Authorization")).thenReturn("Bearer mock_admin_jwt_token");
+        // 模拟JWT验证通过，返回ADMIN角色
         
         logger.info("PaymentTimeoutController MVC测试环境初始化完成");
     }

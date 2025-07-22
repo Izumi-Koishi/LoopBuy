@@ -3,6 +3,9 @@ package com.shiwu.integration;
 import com.shiwu.test.TestBase;
 import com.shiwu.user.service.UserService;
 import com.shiwu.user.service.impl.UserServiceImpl;
+import com.shiwu.user.dao.UserDao;
+import com.shiwu.user.dao.UserFollowDao;
+import com.shiwu.user.dao.FeedDao;
 import com.shiwu.user.model.RegisterRequest;
 import com.shiwu.user.model.RegisterResult;
 import com.shiwu.user.model.LoginResult;
@@ -47,11 +50,20 @@ public class BusinessFlowIntegrationTest extends TestBase {
     @BeforeAll
     public static void setUpClass() {
         logger.info("开始端到端业务流程集成测试");
-        
-        // 初始化服务
-        userService = new UserServiceImpl();
+
+        // 在测试环境中直接实例化服务，使用兼容性构造函数
+        UserDao userDao = new UserDao();
+        UserFollowDao userFollowDao = new UserFollowDao();
+        FeedDao feedDao = new FeedDao();
+
+        // ProductService和OrderService使用无参构造函数，它们内部会初始化所需的DAO
         productService = new ProductServiceImpl();
+
+        userService = new UserServiceImpl(userDao, userFollowDao, feedDao, productService);
+
         orderService = new OrderServiceImpl();
+
+        logger.info("服务实例初始化完成，使用兼容性构造函数");
     }
     
     @Test

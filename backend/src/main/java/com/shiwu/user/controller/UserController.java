@@ -15,6 +15,7 @@ import com.shiwu.user.vo.FeedResponseVO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServletRequest;
 
 import java.util.HashMap;
@@ -30,6 +31,7 @@ import java.util.Map;
  * @version 2.0 (MVC Framework)
  */
 @Controller
+@WebServlet("/api/users/*")
 public class UserController extends BaseController {
     private static final Logger logger = LoggerFactory.getLogger(UserController.class);
 
@@ -262,26 +264,9 @@ public class UserController extends BaseController {
     // ==================== 工具方法 ====================
 
     /**
-     * 从请求中获取用户ID
+     * 从请求中获取用户ID（使用BaseController的统一方法）
      */
     private Long getUserIdFromToken(HttpServletRequest request) {
-        try {
-            String token = request.getHeader("Authorization");
-            if (token != null && token.startsWith("Bearer ")) {
-                token = token.substring(7);
-                return JwtUtil.getUserIdFromToken(token);
-            }
-
-            // 兼容性：也支持从X-User-Id头获取
-            String userIdHeader = request.getHeader("X-User-Id");
-            if (userIdHeader != null) {
-                return Long.parseLong(userIdHeader);
-            }
-
-            return null;
-        } catch (Exception e) {
-            logger.warn("获取用户ID失败", e);
-            return null;
-        }
+        return getCurrentUserId(request);
     }
 }

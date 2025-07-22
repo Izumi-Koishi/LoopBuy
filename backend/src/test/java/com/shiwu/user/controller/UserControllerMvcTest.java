@@ -222,7 +222,8 @@ public class UserControllerMvcTest extends TestBase {
         
         // 设置Mock行为
         when(mockUserService.getUserProfile(TEST_TARGET_USER_ID, TEST_USER_ID)).thenReturn(userProfile);
-        when(request.getHeader("X-User-Id")).thenReturn(TEST_USER_ID.toString());
+        when(request.getAttribute("userId")).thenReturn(TEST_USER_ID);
+        when(request.getHeader("Authorization")).thenReturn("Bearer mock_jwt_token");
         
         // 执行测试
         Result<Object> result = userController.getUserProfile(TEST_TARGET_USER_ID, request);
@@ -247,7 +248,8 @@ public class UserControllerMvcTest extends TestBase {
         
         // 设置Mock行为
         when(mockUserService.getUserProfile(999L, TEST_USER_ID)).thenReturn(null);
-        when(request.getHeader("X-User-Id")).thenReturn(TEST_USER_ID.toString());
+        when(request.getAttribute("userId")).thenReturn(TEST_USER_ID);
+        when(request.getHeader("Authorization")).thenReturn("Bearer mock_jwt_token");
         
         // 执行测试
         Result<Object> result = userController.getUserProfile(999L, request);
@@ -277,7 +279,8 @@ public class UserControllerMvcTest extends TestBase {
         
         // 设置Mock行为
         when(mockUserService.getFollowStatus(TEST_USER_ID, TEST_TARGET_USER_ID)).thenReturn(followStatus);
-        when(request.getHeader("X-User-Id")).thenReturn(TEST_USER_ID.toString());
+        when(request.getAttribute("userId")).thenReturn(TEST_USER_ID);
+        when(request.getHeader("Authorization")).thenReturn("Bearer mock_jwt_token");
         
         // 执行测试
         Result<Object> result = userController.getFollowStatus(TEST_TARGET_USER_ID, request);
@@ -326,7 +329,8 @@ public class UserControllerMvcTest extends TestBase {
         
         // 设置Mock行为
         when(mockUserService.getFollowingFeed(TEST_USER_ID, 1, 20, "ALL")).thenReturn(feedResult);
-        when(request.getHeader("X-User-Id")).thenReturn(TEST_USER_ID.toString());
+        when(request.getAttribute("userId")).thenReturn(TEST_USER_ID);
+        when(request.getHeader("Authorization")).thenReturn("Bearer mock_jwt_token");
         
         // 执行测试
         Result<FeedResponseVO> result = userController.getFollowingFeed(1, 20, request);
@@ -353,7 +357,8 @@ public class UserControllerMvcTest extends TestBase {
 
         // 设置Mock行为
         when(mockUserService.followUser(TEST_USER_ID, TEST_TARGET_USER_ID)).thenReturn(followResult);
-        when(request.getHeader("X-User-Id")).thenReturn(TEST_USER_ID.toString());
+        when(request.getAttribute("userId")).thenReturn(TEST_USER_ID);
+        when(request.getHeader("Authorization")).thenReturn("Bearer mock_jwt_token");
 
         // 执行测试
         Result<Object> result = userController.followUser(TEST_TARGET_USER_ID, request);
@@ -401,7 +406,8 @@ public class UserControllerMvcTest extends TestBase {
 
         // 设置Mock行为
         when(mockUserService.unfollowUser(TEST_USER_ID, TEST_TARGET_USER_ID)).thenReturn(unfollowResult);
-        when(request.getHeader("X-User-Id")).thenReturn(TEST_USER_ID.toString());
+        when(request.getAttribute("userId")).thenReturn(TEST_USER_ID);
+        when(request.getHeader("Authorization")).thenReturn("Bearer mock_jwt_token");
 
         // 执行测试
         Result<Object> result = userController.unfollowUser(TEST_TARGET_USER_ID, request);
@@ -522,7 +528,8 @@ public class UserControllerMvcTest extends TestBase {
         userProfile.setUser(targetUser);
 
         when(mockUserService.getUserProfile(TEST_TARGET_USER_ID, TEST_USER_ID)).thenReturn(userProfile);
-        when(request.getHeader("X-User-Id")).thenReturn(TEST_USER_ID.toString());
+        when(request.getAttribute("userId")).thenReturn(TEST_USER_ID);
+        when(request.getHeader("Authorization")).thenReturn("Bearer mock_jwt_token");
 
         Result<Object> profileResult = userController.getUserProfile(TEST_TARGET_USER_ID, request);
         assertTrue(profileResult.isSuccess(), "获取用户信息应该成功");

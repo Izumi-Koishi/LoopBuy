@@ -2,70 +2,51 @@ package com.shiwu.payment.controller;
 
 import com.shiwu.common.result.Result;
 import com.shiwu.common.util.JsonUtil;
+import com.shiwu.framework.annotation.Autowired;
+import com.shiwu.framework.annotation.Controller;
+import com.shiwu.framework.annotation.RequestMapping;
+import com.shiwu.framework.annotation.PathVariable;
+import com.shiwu.framework.web.BaseController;
 import com.shiwu.payment.task.PaymentTimeoutHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
-import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
+import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 支付超时管理控制器
+ * 支付超时管理控制器 - 精简版MVC框架
+ *
+ * 只包含MVC注解方法，移除传统Servlet代码
  * 提供手动触发超时检查、查看超时状态等管理功能
  */
+@Controller
 @WebServlet("/api/payment/timeout/*")
-public class PaymentTimeoutController extends HttpServlet {
+public class PaymentTimeoutController extends BaseController {
     private static final Logger logger = LoggerFactory.getLogger(PaymentTimeoutController.class);
 
-    @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        String pathInfo = req.getPathInfo();
-
-        if (pathInfo == null || pathInfo.equals("/")) {
-            // 获取超时状态信息
-            handleGetTimeoutStatus(req, resp);
-        } else if (pathInfo.equals("/count")) {
-            // 获取过期支付记录数量
-            handleGetExpiredCount(req, resp);
-        } else {
-            sendErrorResponse(resp, "404", "请求路径不存在");
-        }
+    public PaymentTimeoutController() {
+        logger.info("PaymentTimeoutController初始化完成 - 精简版MVC框架");
     }
 
-    @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        String pathInfo = req.getPathInfo();
-
-        if (pathInfo == null || pathInfo.equals("/")) {
-            // 手动触发超时检查
-            handleTriggerTimeoutCheck(req, resp);
-        } else if (pathInfo.equals("/handle")) {
-            // 手动处理指定的过期支付
-            handleSpecificExpiredPayment(req, resp);
-        } else {
-            sendErrorResponse(resp, "404", "请求路径不存在");
-        }
-    }
+    // ==================== MVC框架注解方法 ====================
 
     /**
-     * 处理获取超时状态信息请求
+     * 获取超时状态信息 - MVC版本
      */
-    private void handleGetTimeoutStatus(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        // 检查管理员权限（简化实现，实际应该有完整的权限验证）
-        if (!isAdmin(req)) {
-            sendErrorResponse(resp, "403", "权限不足");
-            return;
-        }
-
+    @RequestMapping(value = "/", method = "GET")
+    public Result<Object> getTimeoutStatus(HttpServletRequest request) {
         try {
+            // 检查管理员权限
+            if (!isAdmin(request)) {
+                return Result.fail("403", "权限不足");
+            }
+
             PaymentTimeoutHandler handler = PaymentTimeoutHandler.getInstance();
             
             Map<String, Object> status = new HashMap<>();
@@ -73,24 +54,27 @@ public class PaymentTimeoutController extends HttpServlet {
             status.put("expiredPaymentCount", handler.getExpiredPaymentCount());
             status.put("message", "支付超时检查任务状态");
 
-            sendSuccessResponse(resp, status);
+            logger.debug("处理获取超时状态请求: isRunning={}, expiredCount={}", 
+                        handler.isRunning(), handler.getExpiredPaymentCount());
+
+            return Result.success(status);
         } catch (Exception e) {
-            logger.error("获取超时状态失败", e);
-            sendErrorResponse(resp, "500", "获取超时状态失败");
+            logger.error("获取超时状态失败: {}", e.getMessage(), e);
+            return Result.fail("500", "获取超时状态失败");
         }
     }
 
     /**
-     * 处理获取过期支付记录数量请求
+     * 获取过期支付记录数量 - MVC版本
      */
-    private void handleGetExpiredCount(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        // 检查管理员权限
-        if (!isAdmin(req)) {
-            sendErrorResponse(resp, "403", "权限不足");
-            return;
-        }
-
+    @RequestMapping(value = "/count", method = "GET")
+    public Result<Object> getExpiredCount(HttpServletRequest request) {
         try {
+            // 检查管理员权限
+            if (!isAdmin(request)) {
+                return Result.fail("403", "权限不足");
+            }
+
             PaymentTimeoutHandler handler = PaymentTimeoutHandler.getInstance();
             int count = handler.getExpiredPaymentCount();
             
@@ -98,24 +82,26 @@ public class PaymentTimeoutController extends HttpServlet {
             data.put("expiredPaymentCount", count);
             data.put("message", count > 0 ? "发现" + count + "个过期支付记录" : "没有过期支付记录");
 
-            sendSuccessResponse(resp, data);
+            logger.debug("处理获取过期支付记录数量请求: count={}", count);
+
+            return Result.success(data);
         } catch (Exception e) {
-            logger.error("获取过期支付记录数量失败", e);
-            sendErrorResponse(resp, "500", "获取过期支付记录数量失败");
+            logger.error("获取过期支付记录数量失败: {}", e.getMessage(), e);
+            return Result.fail("500", "获取过期支付记录数量失败");
         }
     }
 
     /**
-     * 处理手动触发超时检查请求
+     * 手动触发超时检查 - MVC版本
      */
-    private void handleTriggerTimeoutCheck(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        // 检查管理员权限
-        if (!isAdmin(req)) {
-            sendErrorResponse(resp, "403", "权限不足");
-            return;
-        }
-
+    @RequestMapping(value = "/", method = "POST")
+    public Result<Object> triggerTimeoutCheck(HttpServletRequest request) {
         try {
+            // 检查管理员权限
+            if (!isAdmin(request)) {
+                return Result.fail("403", "权限不足");
+            }
+
             PaymentTimeoutHandler handler = PaymentTimeoutHandler.getInstance();
             
             // 获取当前过期支付记录数量
@@ -129,34 +115,35 @@ public class PaymentTimeoutController extends HttpServlet {
             result.put("expiredPaymentCount", beforeCount);
             result.put("note", "系统会自动每分钟检查一次过期支付记录");
 
-            sendSuccessResponse(resp, result);
-            
             logger.info("管理员手动触发超时检查: 当前过期支付记录数量={}", beforeCount);
+
+            return Result.success(result);
         } catch (Exception e) {
-            logger.error("手动触发超时检查失败", e);
-            sendErrorResponse(resp, "500", "手动触发超时检查失败");
+            logger.error("手动触发超时检查失败: {}", e.getMessage(), e);
+            return Result.fail("500", "手动触发超时检查失败");
         }
     }
 
     /**
-     * 处理手动处理指定过期支付请求
+     * 处理指定过期支付 - MVC版本
      */
-    private void handleSpecificExpiredPayment(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        // 检查管理员权限
-        if (!isAdmin(req)) {
-            sendErrorResponse(resp, "403", "权限不足");
-            return;
-        }
-
+    @RequestMapping(value = "/handle", method = "POST")
+    public Result<Object> handleSpecificExpiredPayment(HttpServletRequest request) {
         try {
-            // 读取请求体
-            String requestBody = readRequestBody(req);
+            // 检查管理员权限
+            if (!isAdmin(request)) {
+                return Result.fail("403", "权限不足");
+            }
+
+            String requestBody = readRequestBody(request);
+            if (requestBody == null || requestBody.trim().isEmpty()) {
+                return Result.fail("400", "请求体不能为空");
+            }
+
             @SuppressWarnings("unchecked")
             Map<String, Object> requestMap = JsonUtil.fromJson(requestBody, Map.class);
-
             if (requestMap == null || !requestMap.containsKey("paymentId")) {
-                sendErrorResponse(resp, "400", "支付ID不能为空");
-                return;
+                return Result.fail("400", "支付ID不能为空");
             }
 
             String paymentId = (String) requestMap.get("paymentId");
@@ -169,24 +156,62 @@ public class PaymentTimeoutController extends HttpServlet {
             result.put("success", success);
             result.put("message", success ? "处理过期支付成功" : "处理过期支付失败");
 
-            if (success) {
-                sendSuccessResponse(resp, result);
-            } else {
-                sendErrorResponse(resp, "500", "处理过期支付失败");
-            }
-
             logger.info("管理员手动处理过期支付: paymentId={}, success={}", paymentId, success);
+
+            if (success) {
+                return Result.success(result);
+            } else {
+                return Result.fail("500", "处理过期支付失败");
+            }
         } catch (Exception e) {
-            logger.error("手动处理过期支付失败", e);
-            sendErrorResponse(resp, "500", "手动处理过期支付失败");
+            logger.error("手动处理过期支付失败: {}", e.getMessage(), e);
+            return Result.fail("500", "手动处理过期支付失败");
         }
     }
 
     /**
+     * 根据支付ID处理超时 - MVC版本（新增功能）
+     */
+    @RequestMapping(value = "/handle/{paymentId}", method = "POST")
+    public Result<Object> handleTimeoutByPaymentId(@PathVariable("paymentId") String paymentId, HttpServletRequest request) {
+        try {
+            // 检查管理员权限
+            if (!isAdmin(request)) {
+                return Result.fail("403", "权限不足");
+            }
+
+            if (paymentId == null || paymentId.trim().isEmpty()) {
+                return Result.fail("400", "支付ID不能为空");
+            }
+
+            PaymentTimeoutHandler handler = PaymentTimeoutHandler.getInstance();
+            boolean success = handler.handleExpiredPayment(paymentId);
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("paymentId", paymentId);
+            result.put("success", success);
+            result.put("message", success ? "处理过期支付成功" : "处理过期支付失败");
+
+            logger.info("管理员通过路径参数处理过期支付: paymentId={}, success={}", paymentId, success);
+
+            if (success) {
+                return Result.success(result);
+            } else {
+                return Result.fail("500", "处理过期支付失败");
+            }
+        } catch (Exception e) {
+            logger.error("通过路径参数处理过期支付失败: {}", e.getMessage(), e);
+            return Result.fail("500", "处理过期支付失败");
+        }
+    }
+
+    // ==================== 工具方法 ====================
+
+    /**
      * 检查是否为管理员（简化实现）
      */
-    private boolean isAdmin(HttpServletRequest req) {
-        HttpSession session = req.getSession(false);
+    protected boolean isAdmin(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
         if (session != null) {
             Object userRoleObj = session.getAttribute("userRole");
             return "admin".equals(userRoleObj);
@@ -197,53 +222,18 @@ public class PaymentTimeoutController extends HttpServlet {
     /**
      * 读取请求体
      */
-    private String readRequestBody(HttpServletRequest req) throws IOException {
-        StringBuilder sb = new StringBuilder();
-        try (java.io.BufferedReader reader = req.getReader()) {
+    protected String readRequestBody(HttpServletRequest request) {
+        try {
+            StringBuilder sb = new StringBuilder();
+            BufferedReader reader = request.getReader();
             String line;
             while ((line = reader.readLine()) != null) {
                 sb.append(line);
             }
-        }
-        return sb.toString();
-    }
-
-    /**
-     * 发送成功响应
-     */
-    private void sendSuccessResponse(HttpServletResponse resp, Object data) throws IOException {
-        resp.setContentType("application/json;charset=UTF-8");
-        resp.setStatus(HttpServletResponse.SC_OK);
-        
-        Result<Object> result = Result.success(data);
-        String jsonResponse = JsonUtil.toJson(result);
-        
-        try (PrintWriter writer = resp.getWriter()) {
-            writer.write(jsonResponse);
-        }
-    }
-
-    /**
-     * 发送错误响应
-     */
-    private void sendErrorResponse(HttpServletResponse resp, String code, String message) throws IOException {
-        resp.setContentType("application/json;charset=UTF-8");
-
-        if ("403".equals(code)) {
-            resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
-        } else if ("404".equals(code)) {
-            resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
-        } else if ("400".equals(code)) {
-            resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-        } else {
-            resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-        }
-
-        Result<Object> result = Result.fail(code, message);
-        String jsonResponse = JsonUtil.toJson(result);
-
-        try (PrintWriter writer = resp.getWriter()) {
-            writer.write(jsonResponse);
+            return sb.toString();
+        } catch (IOException e) {
+            logger.error("读取请求体失败: {}", e.getMessage());
+            return null;
         }
     }
 }

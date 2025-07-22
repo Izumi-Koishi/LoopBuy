@@ -3,6 +3,9 @@ package com.shiwu.product.service.impl;
 import com.shiwu.admin.enums.AuditActionEnum;
 import com.shiwu.admin.enums.AuditTargetTypeEnum;
 import com.shiwu.admin.model.AdminProductQueryDTO;
+import com.shiwu.framework.annotation.Autowired;
+import com.shiwu.framework.annotation.Service;
+import com.shiwu.framework.service.BaseService;
 import com.shiwu.admin.service.AuditLogService;
 import com.shiwu.admin.service.impl.AuditLogServiceImpl;
 import com.shiwu.product.dao.AdminProductDao;
@@ -12,24 +15,30 @@ import com.shiwu.product.service.AdminProductService;
 import com.shiwu.notification.service.NotificationService;
 import com.shiwu.notification.service.impl.NotificationServiceImpl;
 import com.shiwu.common.result.Result;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
- * 管理员商品服务实现类
+ * 管理员商品服务实现类 - MVC框架版本
  * 实现NFR-SEC-03要求，在所有敏感操作中嵌入审计日志记录
  */
-public class AdminProductServiceImpl implements AdminProductService {
-    private static final Logger logger = LoggerFactory.getLogger(AdminProductServiceImpl.class);
-    
-    private final AdminProductDao adminProductDao;
-    private final ProductDao productDao;
-    private final AuditLogService auditLogService;
-    private final NotificationService notificationService;
+@Service
+public class AdminProductServiceImpl extends BaseService implements AdminProductService {
+
+    @Autowired
+    private AdminProductDao adminProductDao;
+
+    @Autowired
+    private ProductDao productDao;
+
+    @Autowired
+    private AuditLogService auditLogService;
+
+    @Autowired
+    private NotificationService notificationService;
 
     public AdminProductServiceImpl() {
         this.adminProductDao = new AdminProductDao();

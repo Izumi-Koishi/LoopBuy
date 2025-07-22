@@ -1,5 +1,6 @@
 package com.shiwu.message.dao;
 
+import com.shiwu.framework.annotation.Repository;
 import com.shiwu.message.model.Message;
 import com.shiwu.common.util.DBUtil;
 
@@ -12,17 +13,20 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 消息数据访问对象
- * 
+ * 消息数据访问对象 - MVC框架版本
+ *
  * 严格遵循项目规范：
  * 1. 使用DBUtil获取连接
  * 2. 不使用物理外键，在应用层管理关系
  * 3. 支持逻辑删除
  * 4. 所有方法都要处理异常
- * 
+ *
+ * 使用MVC框架的@Repository注解
+ *
  * @author Shiwu Team
- * @version 1.0
+ * @version 2.0 (MVC Framework)
  */
+@Repository
 public class MessageDao {
 
     private static final Logger logger = LoggerFactory.getLogger(MessageDao.class);

@@ -1,30 +1,29 @@
 package com.shiwu.order.service.impl;
 
+import com.shiwu.framework.annotation.Service;
+import com.shiwu.framework.service.BaseService;
 import com.shiwu.order.model.Order;
 import com.shiwu.order.model.RefundTransaction;
 import com.shiwu.order.service.RefundService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 退款服务实现类
- * 
+ * 退款服务实现类 - MVC框架版本
+ *
  * 实现模拟退款操作，根据SRS文档UC-18要求：
  * "系统执行模拟退款操作。例如，可以将订单金额返还到买家的虚拟平台余额（如果有这样的设计），
  * 或者简单地记录一笔退款交易。"
- * 
+ *
  * 这里采用简单记录退款交易的方式，在实际项目中可以扩展为真实的退款操作。
- * 
+ *
  * @author Shiwu Team
  * @version 1.0
  */
-public class RefundServiceImpl implements RefundService {
-    
-    private static final Logger logger = LoggerFactory.getLogger(RefundServiceImpl.class);
+@Service
+public class RefundServiceImpl extends BaseService implements RefundService {
     
     // 使用内存存储退款记录（在实际项目中应该使用数据库）
     private final Map<String, RefundTransaction> refundTransactions = new ConcurrentHashMap<>();

@@ -1,468 +1,423 @@
 package com.shiwu.admin.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.shiwu.admin.model.AdminUserManageDTO;
 import com.shiwu.admin.model.AdminUserQueryDTO;
 import com.shiwu.admin.service.AdminService;
 import com.shiwu.admin.service.impl.AdminServiceImpl;
 import com.shiwu.common.result.Result;
 import com.shiwu.common.util.JwtUtil;
+import com.shiwu.framework.annotation.Controller;
+import com.shiwu.framework.annotation.PathVariable;
+import com.shiwu.framework.annotation.RequestMapping;
+import com.shiwu.framework.annotation.RequestParam;
+import com.shiwu.framework.web.BaseController;
 import com.shiwu.user.service.AdminUserService;
 import com.shiwu.user.service.impl.AdminUserServiceImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
-import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 
 /**
- * 管理员用户管理控制器
+ * 管理员用户管理控制器 - 重构为MVC框架
+ * 使用注解驱动，大幅简化路由分发代码
  */
+@Controller
 @WebServlet("/api/admin/users/*")
-public class AdminUserController extends HttpServlet {
+public class AdminUserController extends BaseController {
     private static final Logger logger = LoggerFactory.getLogger(AdminUserController.class);
-    
+
     private final AdminUserService adminUserService;
     private final AdminService adminService;
-    private final ObjectMapper objectMapper;
 
     public AdminUserController() {
         this.adminUserService = new AdminUserServiceImpl();
         this.adminService = new AdminServiceImpl();
-        this.objectMapper = new ObjectMapper();
-        this.objectMapper.registerModule(new JavaTimeModule());
+        logger.info("AdminUserController初始化完成 - 使用MVC框架");
     }
 
-    // 用于测试的构造函数
+    // 用于测试的构造函数，支持依赖注入
     public AdminUserController(AdminUserService adminUserService, AdminService adminService) {
         this.adminUserService = adminUserService;
         this.adminService = adminService;
-        this.objectMapper = new ObjectMapper();
-        this.objectMapper.registerModule(new JavaTimeModule());
+        logger.info("AdminUserController初始化完成 - 使用依赖注入");
     }
 
-    @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        String pathInfo = req.getPathInfo();
-        
-        // 验证管理员权限
-        Long adminId = validateAdminPermission(req, resp, "ADMIN");
-        if (adminId == null) {
-            return;
-        }
-        
-        if (pathInfo == null || pathInfo.equals("/")) {
-            // 查询用户列表
-            handleGetUsers(req, resp, adminId);
-        } else if (pathInfo.startsWith("/") && pathInfo.length() > 1) {
-            try {
-                // 获取用户详情
-                Long userId = Long.parseLong(pathInfo.substring(1));
-                handleGetUserDetail(req, resp, adminId, userId);
-            } catch (NumberFormatException e) {
-                sendErrorResponse(resp, "400", "无效的用户ID格式");
+    /**
+     * 查询用户列表
+     * API: GET /api/admin/users/
+     */
+    @RequestMapping(value = "/", method = "GET")
+    public Result<Map<String, Object>> getUsers(@RequestParam(value = "page", defaultValue = "1") Integer page,
+                                               @RequestParam(value = "size", defaultValue = "10") Integer size,
+                                               @RequestParam(value = "keyword", required = false) String keyword,
+                                               @RequestParam(value = "status", required = false) String status,
+                                               HttpServletRequest request) {
+        logger.info("查询用户列表请求: page={}, size={}, keyword={}, status={}", page, size, keyword, status);
+
+        try {
+            // 验证管理员权限
+            Long adminId = validateAdminPermission(request);
+            if (adminId == null) {
+                return Result.fail("AUTH001", "权限验证失败");
             }
-        } else {
-            sendErrorResponse(resp, "404", "请求路径不存在");
-        }
-    }
 
-    @Override
-    protected void doPut(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        String pathInfo = req.getPathInfo();
-        
-        // 验证管理员权限
-        Long adminId = validateAdminPermission(req, resp, "ADMIN");
-        if (adminId == null) {
-            return;
-        }
-        
-        if (pathInfo != null && pathInfo.length() > 1) {
-            try {
-                String[] segments = pathInfo.substring(1).split("/");
-                Long userId = Long.parseLong(segments[0]);
-                
-                if (segments.length > 1) {
-                    switch (segments[1]) {
-                        case "ban":
-                            // 封禁用户
-                            handleBanUser(req, resp, adminId, userId);
-                            break;
-                        case "mute":
-                            // 禁言用户
-                            handleMuteUser(req, resp, adminId, userId);
-                            break;
-                        case "unban":
-                            // 解封用户
-                            handleUnbanUser(req, resp, adminId, userId);
-                            break;
-                        case "unmute":
-                            // 解除禁言
-                            handleUnmuteUser(req, resp, adminId, userId);
-                            break;
-                        default:
-                            sendErrorResponse(resp, "404", "请求路径不存在");
-                    }
-                } else {
-                    sendErrorResponse(resp, "404", "请求路径不存在");
+            // 构建查询条件
+            AdminUserQueryDTO queryDTO = new AdminUserQueryDTO();
+            queryDTO.setPageNum(page);
+            queryDTO.setPageSize(size);
+            queryDTO.setKeyword(keyword);
+            if (status != null && !status.trim().isEmpty()) {
+                try {
+                    queryDTO.setStatus(Integer.parseInt(status));
+                } catch (NumberFormatException e) {
+                    logger.warn("无效的状态参数: {}", status);
                 }
-            } catch (NumberFormatException e) {
-                sendErrorResponse(resp, "400", "无效的用户ID格式");
             }
-        } else {
-            sendErrorResponse(resp, "404", "请求路径不存在");
+
+            // 查询用户列表
+            Map<String, Object> result = adminUserService.findUsers(queryDTO);
+
+            logger.info("查询用户列表成功: page={}, size={}, total={}", page, size, result.get("total"));
+            return Result.success(result);
+
+        } catch (Exception e) {
+            logger.error("查询用户列表失败", e);
+            return Result.fail("USER001", "查询用户列表失败: " + e.getMessage());
         }
     }
 
-    @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        String pathInfo = req.getPathInfo();
-        
-        // 验证管理员权限
-        Long adminId = validateAdminPermission(req, resp, "ADMIN");
-        if (adminId == null) {
-            return;
-        }
-        
-        if (pathInfo != null) {
-            switch (pathInfo) {
-                case "/batch-ban":
-                    // 批量封禁用户
-                    handleBatchBanUsers(req, resp, adminId);
-                    break;
-                case "/batch-mute":
-                    // 批量禁言用户
-                    handleBatchMuteUsers(req, resp, adminId);
-                    break;
-                default:
-                    sendErrorResponse(resp, "404", "请求路径不存在");
+    /**
+     * 获取用户详情
+     * API: GET /api/admin/users/{userId}
+     */
+    @RequestMapping(value = "/{userId}", method = "GET")
+    public Result<Object> getUserDetail(@PathVariable("userId") Long userId,
+                                       HttpServletRequest request) {
+        logger.info("获取用户详情请求: userId={}", userId);
+
+        try {
+            // 验证管理员权限
+            Long adminId = validateAdminPermission(request);
+            if (adminId == null) {
+                return Result.fail("AUTH001", "权限验证失败");
             }
-        } else {
-            sendErrorResponse(resp, "404", "请求路径不存在");
+
+            // 获取用户详情
+            Map<String, Object> userDetail = adminUserService.getUserDetail(userId, adminId);
+            if (userDetail == null) {
+                logger.warn("用户不存在: userId={}", userId);
+                return Result.fail("USER002", "用户不存在");
+            }
+
+            logger.info("获取用户详情成功: userId={}", userId);
+            return Result.success(userDetail);
+
+        } catch (Exception e) {
+            logger.error("获取用户详情失败: userId={}", userId, e);
+            return Result.fail("USER003", "获取用户详情失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 封禁用户 - MVC版本（新增功能）
+     * API: POST /api/admin/users/{userId}/ban
+     */
+    @RequestMapping(value = "/{userId}/ban", method = "POST")
+    public Result<Object> banUser(@PathVariable("userId") Long userId, HttpServletRequest request) {
+        logger.info("封禁用户请求: userId={}", userId);
+
+        try {
+            // 验证管理员权限
+            Long adminId = validateAdminPermission(request);
+            if (adminId == null) {
+                return Result.fail("AUTH001", "权限验证失败");
+            }
+
+            // 解析请求体获取封禁原因
+            String reason = "管理员封禁";
+            try {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> requestMap = parseRequestBody(request, Map.class);
+                if (requestMap != null && requestMap.containsKey("reason")) {
+                    reason = (String) requestMap.get("reason");
+                }
+            } catch (Exception e) {
+                logger.warn("解析封禁原因失败，使用默认原因");
+            }
+
+            String ipAddress = getClientIpAddress(request);
+            String userAgent = request.getHeader("User-Agent");
+
+            // 执行封禁操作
+            boolean success = adminUserService.banUser(userId, adminId, reason, ipAddress, userAgent);
+            if (success) {
+                logger.info("封禁用户成功: userId={}, adminId={}", userId, adminId);
+                return Result.success("用户封禁成功");
+            } else {
+                logger.warn("封禁用户失败: userId={}, adminId={}", userId, adminId);
+                return Result.fail("USER004", "封禁用户失败");
+            }
+
+        } catch (Exception e) {
+            logger.error("封禁用户异常: userId={}", userId, e);
+            return Result.fail("USER005", "封禁用户异常: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 禁言用户 - MVC版本（新增功能）
+     * API: POST /api/admin/users/{userId}/mute
+     */
+    @RequestMapping(value = "/{userId}/mute", method = "POST")
+    public Result<Object> muteUser(@PathVariable("userId") Long userId, HttpServletRequest request) {
+        logger.info("禁言用户请求: userId={}", userId);
+
+        try {
+            // 验证管理员权限
+            Long adminId = validateAdminPermission(request);
+            if (adminId == null) {
+                return Result.fail("AUTH001", "权限验证失败");
+            }
+
+            // 解析请求体获取禁言原因
+            String reason = "管理员禁言";
+            try {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> requestMap = parseRequestBody(request, Map.class);
+                if (requestMap != null && requestMap.containsKey("reason")) {
+                    reason = (String) requestMap.get("reason");
+                }
+            } catch (Exception e) {
+                logger.warn("解析禁言原因失败，使用默认原因");
+            }
+
+            String ipAddress = getClientIpAddress(request);
+            String userAgent = request.getHeader("User-Agent");
+
+            // 执行禁言操作
+            boolean success = adminUserService.muteUser(userId, adminId, reason, ipAddress, userAgent);
+            if (success) {
+                logger.info("禁言用户成功: userId={}, adminId={}", userId, adminId);
+                return Result.success("用户禁言成功");
+            } else {
+                logger.warn("禁言用户失败: userId={}, adminId={}", userId, adminId);
+                return Result.fail("USER006", "禁言用户失败");
+            }
+
+        } catch (Exception e) {
+            logger.error("禁言用户异常: userId={}", userId, e);
+            return Result.fail("USER007", "禁言用户异常: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 解封用户 - MVC版本（新增功能）
+     * API: POST /api/admin/users/{userId}/unban
+     */
+    @RequestMapping(value = "/{userId}/unban", method = "POST")
+    public Result<Object> unbanUser(@PathVariable("userId") Long userId, HttpServletRequest request) {
+        logger.info("解封用户请求: userId={}", userId);
+
+        try {
+            // 验证管理员权限
+            Long adminId = validateAdminPermission(request);
+            if (adminId == null) {
+                return Result.fail("AUTH001", "权限验证失败");
+            }
+
+            String ipAddress = getClientIpAddress(request);
+            String userAgent = request.getHeader("User-Agent");
+
+            // 执行解封操作
+            boolean success = adminUserService.unbanUser(userId, adminId, ipAddress, userAgent);
+            if (success) {
+                logger.info("解封用户成功: userId={}, adminId={}", userId, adminId);
+                return Result.success("用户解封成功");
+            } else {
+                logger.warn("解封用户失败: userId={}, adminId={}", userId, adminId);
+                return Result.fail("USER008", "解封用户失败");
+            }
+
+        } catch (Exception e) {
+            logger.error("解封用户异常: userId={}", userId, e);
+            return Result.fail("USER009", "解封用户异常: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 解除禁言 - MVC版本（新增功能）
+     * API: POST /api/admin/users/{userId}/unmute
+     */
+    @RequestMapping(value = "/{userId}/unmute", method = "POST")
+    public Result<Object> unmuteUser(@PathVariable("userId") Long userId, HttpServletRequest request) {
+        logger.info("解除禁言请求: userId={}", userId);
+
+        try {
+            // 验证管理员权限
+            Long adminId = validateAdminPermission(request);
+            if (adminId == null) {
+                return Result.fail("AUTH001", "权限验证失败");
+            }
+
+            String ipAddress = getClientIpAddress(request);
+            String userAgent = request.getHeader("User-Agent");
+
+            // 执行解除禁言操作
+            boolean success = adminUserService.unmuteUser(userId, adminId, ipAddress, userAgent);
+            if (success) {
+                logger.info("解除禁言成功: userId={}, adminId={}", userId, adminId);
+                return Result.success("用户解除禁言成功");
+            } else {
+                logger.warn("解除禁言失败: userId={}, adminId={}", userId, adminId);
+                return Result.fail("USER010", "解除禁言失败");
+            }
+
+        } catch (Exception e) {
+            logger.error("解除禁言异常: userId={}", userId, e);
+            return Result.fail("USER011", "解除禁言异常: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 批量封禁用户 - MVC版本（新增功能）
+     * API: POST /api/admin/users/batch/ban
+     */
+    @RequestMapping(value = "/batch/ban", method = "POST")
+    public Result<Object> batchBanUsers(HttpServletRequest request) {
+        logger.info("批量封禁用户请求");
+
+        try {
+            // 验证管理员权限
+            Long adminId = validateAdminPermission(request);
+            if (adminId == null) {
+                return Result.fail("AUTH001", "权限验证失败");
+            }
+
+            // 解析请求体
+            @SuppressWarnings("unchecked")
+            Map<String, Object> requestMap = parseRequestBody(request, Map.class);
+            if (requestMap == null || !requestMap.containsKey("userIds")) {
+                return Result.fail("USER012", "用户ID列表不能为空");
+            }
+
+            @SuppressWarnings("unchecked")
+            List<Long> userIds = (List<Long>) requestMap.get("userIds");
+            String reason = (String) requestMap.getOrDefault("reason", "管理员批量封禁");
+
+            if (userIds == null || userIds.isEmpty()) {
+                return Result.fail("USER013", "用户ID列表不能为空");
+            }
+
+            String ipAddress = getClientIpAddress(request);
+            String userAgent = request.getHeader("User-Agent");
+
+            // 执行批量封禁操作
+            Map<String, Object> result = adminUserService.batchBanUsers(userIds, adminId, reason, ipAddress, userAgent);
+
+            logger.info("批量封禁用户完成: adminId={}, userCount={}", adminId, userIds.size());
+            return Result.success(result);
+
+        } catch (Exception e) {
+            logger.error("批量封禁用户异常", e);
+            return Result.fail("USER014", "批量封禁用户异常: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 批量禁言用户 - MVC版本（新增功能）
+     * API: POST /api/admin/users/batch/mute
+     */
+    @RequestMapping(value = "/batch/mute", method = "POST")
+    public Result<Object> batchMuteUsers(HttpServletRequest request) {
+        logger.info("批量禁言用户请求");
+
+        try {
+            // 验证管理员权限
+            Long adminId = validateAdminPermission(request);
+            if (adminId == null) {
+                return Result.fail("AUTH001", "权限验证失败");
+            }
+
+            // 解析请求体
+            @SuppressWarnings("unchecked")
+            Map<String, Object> requestMap = parseRequestBody(request, Map.class);
+            if (requestMap == null || !requestMap.containsKey("userIds")) {
+                return Result.fail("USER015", "用户ID列表不能为空");
+            }
+
+            @SuppressWarnings("unchecked")
+            List<Long> userIds = (List<Long>) requestMap.get("userIds");
+            String reason = (String) requestMap.getOrDefault("reason", "管理员批量禁言");
+
+            if (userIds == null || userIds.isEmpty()) {
+                return Result.fail("USER016", "用户ID列表不能为空");
+            }
+
+            String ipAddress = getClientIpAddress(request);
+            String userAgent = request.getHeader("User-Agent");
+
+            // 执行批量禁言操作
+            Map<String, Object> result = adminUserService.batchMuteUsers(userIds, adminId, reason, ipAddress, userAgent);
+
+            logger.info("批量禁言用户完成: adminId={}, userCount={}", adminId, userIds.size());
+            return Result.success(result);
+
+        } catch (Exception e) {
+            logger.error("批量禁言用户异常", e);
+            return Result.fail("USER017", "批量禁言用户异常: " + e.getMessage());
         }
     }
 
     /**
      * 验证管理员权限
      */
-    private Long validateAdminPermission(HttpServletRequest req, HttpServletResponse resp, String requiredRole) 
-            throws IOException {
-        String token = req.getHeader("Authorization");
-        if (token != null && token.startsWith("Bearer ")) {
-            token = token.substring(7);
-        }
-        
-        if (!JwtUtil.validateToken(token)) {
-            sendErrorResponse(resp, "401", "未授权访问");
+    private Long validateAdminPermission(HttpServletRequest request) {
+        try {
+            String token = request.getHeader("Authorization");
+            if (token != null && token.startsWith("Bearer ")) {
+                token = token.substring(7);
+            }
+
+            if (!JwtUtil.validateToken(token)) {
+                logger.warn("Token验证失败");
+                return null;
+            }
+
+            Long adminId = JwtUtil.getUserIdFromToken(token);
+            if (adminId == null) {
+                logger.warn("无效的令牌");
+                return null;
+            }
+
+            if (!adminService.hasPermission(adminId, "ADMIN")) {
+                logger.warn("权限不足，管理员ID: {}", adminId);
+                return null;
+            }
+
+            return adminId;
+        } catch (Exception e) {
+            logger.error("权限验证异常", e);
             return null;
         }
-        
-        Long adminId = JwtUtil.getUserIdFromToken(token);
-        if (adminId == null) {
-            sendErrorResponse(resp, "401", "无效的令牌");
-            return null;
-        }
-        
-        if (!adminService.hasPermission(adminId, requiredRole)) {
-            sendErrorResponse(resp, "403", "权限不足");
-            return null;
-        }
-        
-        return adminId;
-    }
-
-    /**
-     * 处理查询用户列表请求
-     */
-    private void handleGetUsers(HttpServletRequest req, HttpServletResponse resp, Long adminId) 
-            throws IOException {
-        try {
-            // 解析查询参数
-            AdminUserQueryDTO queryDTO = parseQueryParams(req);
-            
-            // 查询用户列表
-            Map<String, Object> result = adminUserService.findUsers(queryDTO);
-            
-            sendSuccessResponse(resp, result);
-        } catch (Exception e) {
-            logger.error("查询用户列表失败: {}", e.getMessage(), e);
-            sendErrorResponse(resp, "500", "系统错误，请稍后再试");
-        }
-    }
-
-    /**
-     * 处理获取用户详情请求
-     */
-    private void handleGetUserDetail(HttpServletRequest req, HttpServletResponse resp, Long adminId, Long userId) 
-            throws IOException {
-        try {
-            Map<String, Object> result = adminUserService.getUserDetail(userId, adminId);
-            
-            if (result != null) {
-                sendSuccessResponse(resp, result);
-            } else {
-                sendErrorResponse(resp, "404", "用户不存在");
-            }
-        } catch (Exception e) {
-            logger.error("获取用户详情失败: {}", e.getMessage(), e);
-            sendErrorResponse(resp, "500", "系统错误，请稍后再试");
-        }
-    }
-
-    /**
-     * 处理封禁用户请求
-     */
-    private void handleBanUser(HttpServletRequest req, HttpServletResponse resp, Long adminId, Long userId)
-            throws IOException {
-        try {
-            // 解析请求体
-            AdminUserManageDTO manageDTO = parseRequestBody(req, AdminUserManageDTO.class);
-
-            // 获取IP地址和用户代理
-            String ipAddress = getClientIpAddress(req);
-            String userAgent = req.getHeader("User-Agent");
-
-            boolean success = adminUserService.banUser(userId, adminId, manageDTO.getReason(), ipAddress, userAgent);
-
-            if (success) {
-                sendSuccessResponse(resp, null, "用户封禁成功");
-                logger.info("管理员 {} 封禁用户 {}", adminId, userId);
-            } else {
-                sendErrorResponse(resp, "400", "封禁失败，请检查用户状态");
-            }
-        } catch (Exception e) {
-            logger.error("封禁用户失败: {}", e.getMessage(), e);
-            sendErrorResponse(resp, "500", "系统错误，请稍后再试");
-        }
-    }
-
-    /**
-     * 处理禁言用户请求
-     */
-    private void handleMuteUser(HttpServletRequest req, HttpServletResponse resp, Long adminId, Long userId)
-            throws IOException {
-        try {
-            // 解析请求体
-            AdminUserManageDTO manageDTO = parseRequestBody(req, AdminUserManageDTO.class);
-
-            // 获取IP地址和用户代理
-            String ipAddress = getClientIpAddress(req);
-            String userAgent = req.getHeader("User-Agent");
-
-            boolean success = adminUserService.muteUser(userId, adminId, manageDTO.getReason(), ipAddress, userAgent);
-
-            if (success) {
-                sendSuccessResponse(resp, null, "用户禁言成功");
-                logger.info("管理员 {} 禁言用户 {}", adminId, userId);
-            } else {
-                sendErrorResponse(resp, "400", "禁言失败，请检查用户状态");
-            }
-        } catch (Exception e) {
-            logger.error("禁言用户失败: {}", e.getMessage(), e);
-            sendErrorResponse(resp, "500", "系统错误，请稍后再试");
-        }
-    }
-
-    /**
-     * 处理解封用户请求
-     */
-    private void handleUnbanUser(HttpServletRequest req, HttpServletResponse resp, Long adminId, Long userId)
-            throws IOException {
-        try {
-            // 获取IP地址和用户代理
-            String ipAddress = getClientIpAddress(req);
-            String userAgent = req.getHeader("User-Agent");
-
-            boolean success = adminUserService.unbanUser(userId, adminId, ipAddress, userAgent);
-
-            if (success) {
-                sendSuccessResponse(resp, null, "用户解封成功");
-                logger.info("管理员 {} 解封用户 {}", adminId, userId);
-            } else {
-                sendErrorResponse(resp, "400", "解封失败，请检查用户状态");
-            }
-        } catch (Exception e) {
-            logger.error("解封用户失败: {}", e.getMessage(), e);
-            sendErrorResponse(resp, "500", "系统错误，请稍后再试");
-        }
-    }
-
-    /**
-     * 处理解除禁言请求
-     */
-    private void handleUnmuteUser(HttpServletRequest req, HttpServletResponse resp, Long adminId, Long userId)
-            throws IOException {
-        try {
-            // 获取IP地址和用户代理
-            String ipAddress = getClientIpAddress(req);
-            String userAgent = req.getHeader("User-Agent");
-
-            boolean success = adminUserService.unmuteUser(userId, adminId, ipAddress, userAgent);
-
-            if (success) {
-                sendSuccessResponse(resp, null, "用户解除禁言成功");
-                logger.info("管理员 {} 解除用户 {} 禁言", adminId, userId);
-            } else {
-                sendErrorResponse(resp, "400", "解除禁言失败，请检查用户状态");
-            }
-        } catch (Exception e) {
-            logger.error("解除禁言失败: {}", e.getMessage(), e);
-            sendErrorResponse(resp, "500", "系统错误，请稍后再试");
-        }
-    }
-
-    /**
-     * 处理批量封禁用户请求
-     */
-    private void handleBatchBanUsers(HttpServletRequest req, HttpServletResponse resp, Long adminId) 
-            throws IOException {
-        try {
-            // 解析请求体
-            AdminUserManageDTO manageDTO = parseRequestBody(req, AdminUserManageDTO.class);
-            
-            if (manageDTO.getUserIds() == null || manageDTO.getUserIds().isEmpty()) {
-                sendErrorResponse(resp, "400", "用户ID列表不能为空");
-                return;
-            }
-
-            // 获取IP地址和用户代理
-            String ipAddress = getClientIpAddress(req);
-            String userAgent = req.getHeader("User-Agent");
-
-            Map<String, Object> result = adminUserService.batchBanUsers(manageDTO.getUserIds(), adminId, manageDTO.getReason(), ipAddress, userAgent);
-            
-            sendSuccessResponse(resp, result, "批量封禁操作完成");
-            logger.info("管理员 {} 批量封禁用户: {}", adminId, manageDTO.getUserIds());
-        } catch (Exception e) {
-            logger.error("批量封禁用户失败: {}", e.getMessage(), e);
-            sendErrorResponse(resp, "500", "系统错误，请稍后再试");
-        }
-    }
-
-    /**
-     * 处理批量禁言用户请求
-     */
-    private void handleBatchMuteUsers(HttpServletRequest req, HttpServletResponse resp, Long adminId) 
-            throws IOException {
-        try {
-            // 解析请求体
-            AdminUserManageDTO manageDTO = parseRequestBody(req, AdminUserManageDTO.class);
-            
-            if (manageDTO.getUserIds() == null || manageDTO.getUserIds().isEmpty()) {
-                sendErrorResponse(resp, "400", "用户ID列表不能为空");
-                return;
-            }
-
-            // 获取IP地址和用户代理
-            String ipAddress = getClientIpAddress(req);
-            String userAgent = req.getHeader("User-Agent");
-
-            Map<String, Object> result = adminUserService.batchMuteUsers(manageDTO.getUserIds(), adminId, manageDTO.getReason(), ipAddress, userAgent);
-            
-            sendSuccessResponse(resp, result, "批量禁言操作完成");
-            logger.info("管理员 {} 批量禁言用户: {}", adminId, manageDTO.getUserIds());
-        } catch (Exception e) {
-            logger.error("批量禁言用户失败: {}", e.getMessage(), e);
-            sendErrorResponse(resp, "500", "系统错误，请稍后再试");
-        }
-    }
-
-    /**
-     * 解析查询参数
-     */
-    private AdminUserQueryDTO parseQueryParams(HttpServletRequest req) {
-        AdminUserQueryDTO queryDTO = new AdminUserQueryDTO();
-        
-        String keyword = req.getParameter("keyword");
-        String status = req.getParameter("status");
-        String pageNum = req.getParameter("pageNum");
-        String pageSize = req.getParameter("pageSize");
-        String sortBy = req.getParameter("sortBy");
-        String sortDirection = req.getParameter("sortDirection");
-        
-        queryDTO.setKeyword(keyword);
-        
-        if (status != null && !status.trim().isEmpty()) {
-            try {
-                queryDTO.setStatus(Integer.parseInt(status));
-            } catch (NumberFormatException e) {
-                // 忽略无效的状态参数
-            }
-        }
-        
-        queryDTO.setPageNum(pageNum != null ? Integer.parseInt(pageNum) : 1);
-        queryDTO.setPageSize(pageSize != null ? Integer.parseInt(pageSize) : 20);
-        queryDTO.setSortBy(sortBy != null ? sortBy : "create_time");
-        queryDTO.setSortDirection(sortDirection != null ? sortDirection : "DESC");
-        
-        return queryDTO;
-    }
-
-    /**
-     * 解析请求体
-     */
-    private <T> T parseRequestBody(HttpServletRequest req, Class<T> clazz) throws IOException {
-        return objectMapper.readValue(req.getInputStream(), clazz);
-    }
-
-    /**
-     * 发送成功响应
-     */
-    private void sendSuccessResponse(HttpServletResponse resp, Object data) throws IOException {
-        sendSuccessResponse(resp, data, "操作成功");
-    }
-
-    /**
-     * 发送成功响应
-     */
-    private void sendSuccessResponse(HttpServletResponse resp, Object data, String message) throws IOException {
-        resp.setContentType("application/json;charset=UTF-8");
-        Result<Object> result = Result.success(data);
-        result.setMessage(message);
-        resp.getWriter().write(objectMapper.writeValueAsString(result));
-    }
-
-    /**
-     * 发送错误响应
-     */
-    private void sendErrorResponse(HttpServletResponse resp, String code, String message) throws IOException {
-        resp.setContentType("application/json;charset=UTF-8");
-        Result<Object> result = Result.fail(code, message);
-        resp.getWriter().write(objectMapper.writeValueAsString(result));
     }
 
     /**
      * 获取客户端IP地址
      */
     private String getClientIpAddress(HttpServletRequest request) {
-        String ipAddress = request.getHeader("X-Forwarded-For");
-        if (ipAddress == null || ipAddress.isEmpty() || "unknown".equalsIgnoreCase(ipAddress)) {
-            ipAddress = request.getHeader("Proxy-Client-IP");
-        }
-        if (ipAddress == null || ipAddress.isEmpty() || "unknown".equalsIgnoreCase(ipAddress)) {
-            ipAddress = request.getHeader("WL-Proxy-Client-IP");
-        }
-        if (ipAddress == null || ipAddress.isEmpty() || "unknown".equalsIgnoreCase(ipAddress)) {
-            ipAddress = request.getHeader("HTTP_CLIENT_IP");
-        }
-        if (ipAddress == null || ipAddress.isEmpty() || "unknown".equalsIgnoreCase(ipAddress)) {
-            ipAddress = request.getHeader("HTTP_X_FORWARDED_FOR");
-        }
-        if (ipAddress == null || ipAddress.isEmpty() || "unknown".equalsIgnoreCase(ipAddress)) {
-            ipAddress = request.getRemoteAddr();
+        String xForwardedFor = request.getHeader("X-Forwarded-For");
+        if (xForwardedFor != null && !xForwardedFor.isEmpty() && !"unknown".equalsIgnoreCase(xForwardedFor)) {
+            return xForwardedFor.split(",")[0].trim();
         }
 
-        // 如果是多个IP地址，取第一个
-        if (ipAddress != null && ipAddress.contains(",")) {
-            ipAddress = ipAddress.split(",")[0].trim();
+        String xRealIp = request.getHeader("X-Real-IP");
+        if (xRealIp != null && !xRealIp.isEmpty() && !"unknown".equalsIgnoreCase(xRealIp)) {
+            return xRealIp;
         }
 
-        return ipAddress;
+        return request.getRemoteAddr();
     }
 }

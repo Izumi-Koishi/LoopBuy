@@ -1,6 +1,7 @@
 package com.shiwu.notification.dao;
 
 import com.shiwu.common.util.DBUtil;
+import com.shiwu.framework.annotation.Repository;
 import com.shiwu.notification.model.Notification;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,15 +12,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 通知数据访问对象
- * 
+ * 通知数据访问对象 - MVC框架版本
+ *
  * 用于Task4_2_1_2: 商品审核通过粉丝通知功能
  * 提供通知的CRUD操作
- * 
+ *
+ * 使用MVC框架的@Repository注解标识数据访问层
+ *
  * @author LoopBuy Team
- * @version 1.0
+ * @version 2.0 (MVC Framework)
  * @since 2024-01-15
  */
+@Repository
 public class NotificationDao {
     
     private static final Logger logger = LoggerFactory.getLogger(NotificationDao.class);

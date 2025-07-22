@@ -3,6 +3,7 @@ package com.shiwu.admin.dao;
 import com.shiwu.admin.dto.AuditLogQueryDTO;
 import com.shiwu.admin.model.AuditLog;
 import com.shiwu.common.util.DBUtil;
+import com.shiwu.framework.annotation.Repository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -14,8 +15,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 审计日志数据访问对象
+ * 审计日志数据访问对象 - MVC框架版本
  */
+@Repository
 public class AuditLogDao {
     private static final Logger logger = LoggerFactory.getLogger(AuditLogDao.class);
 

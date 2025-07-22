@@ -1,11 +1,13 @@
 package com.shiwu.product.service.impl;
 
+import com.shiwu.framework.annotation.Autowired;
+import com.shiwu.framework.annotation.Service;
+import com.shiwu.framework.service.BaseService;
 import com.shiwu.product.dao.CategoryDao;
 import com.shiwu.product.dao.ProductDao;
 import com.shiwu.product.model.*;
 import com.shiwu.product.service.ProductService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
 
 //import java.io.File;
 import java.io.FileOutputStream;
@@ -23,10 +25,10 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * 商品服务实现类
+ * 商品服务实现类 - MVC框架版本
  */
-public class ProductServiceImpl implements ProductService {
-    private static final Logger logger = LoggerFactory.getLogger(ProductServiceImpl.class);
+@Service
+public class ProductServiceImpl extends BaseService implements ProductService {
     
     // 文件上传配置
     private static final String UPLOAD_DIR = "uploads/products";
@@ -35,12 +37,35 @@ public class ProductServiceImpl implements ProductService {
             "image/jpeg", "image/png", "image/webp"
     );
     
-    private final CategoryDao categoryDao;
-    private final ProductDao productDao;
-    
+    @Autowired
+    private CategoryDao categoryDao;
+
+    @Autowired
+    private ProductDao productDao;
+
     public ProductServiceImpl() {
+        // 为了兼容测试，在无参构造函数中初始化DAO
         this.categoryDao = new CategoryDao();
         this.productDao = new ProductDao();
+        logger.info("ProductServiceImpl初始化完成 - 使用MVC框架依赖注入");
+
+        // 确保上传目录存在
+        try {
+            Path uploadPath = Paths.get(UPLOAD_DIR);
+            if (!Files.exists(uploadPath)) {
+                Files.createDirectories(uploadPath);
+                logger.info("创建商品图片上传目录: {}", uploadPath.toAbsolutePath());
+            }
+        } catch (IOException e) {
+            logger.error("创建上传目录失败: {}", e.getMessage(), e);
+        }
+    }
+
+    // 兼容性构造函数，支持渐进式迁移
+    public ProductServiceImpl(CategoryDao categoryDao, ProductDao productDao) {
+        this.categoryDao = categoryDao;
+        this.productDao = productDao;
+        logger.info("ProductServiceImpl初始化完成 - 使用兼容性构造函数");
         
         // 确保上传目录存在
         try {
@@ -61,29 +86,29 @@ public class ProductServiceImpl implements ProductService {
     
     @Override
     public Long createProduct(ProductCreateDTO dto, Long sellerId) {
-        // 参数校验
-        if (dto == null || sellerId == null) {
-            logger.warn("创建商品失败: 参数为空");
-            return null;
-        }
-        
-        // 检查标题是否为空
-        if (dto.getTitle() == null || dto.getTitle().trim().isEmpty()) {
-            logger.warn("创建商品失败: 商品标题为空");
+        logMethodStart("createProduct", dto != null ? dto.getTitle() : null, sellerId);
+
+        try {
+            // 参数校验
+            validateNotNull(dto, "dto");
+            validateId(sellerId, "sellerId");
+            validateNotBlank(dto.getTitle(), "title");
+        } catch (IllegalArgumentException e) {
+            logBusinessWarning("创建商品失败: {}", e.getMessage());
             return null;
         }
         
         // 如果是提交审核，则进行更严格的校验
         if (ProductCreateDTO.ACTION_SUBMIT_REVIEW.equals(dto.getAction())) {
-            // 检查描述是否为空
-            if (dto.getDescription() == null || dto.getDescription().trim().isEmpty()) {
-                logger.warn("提交商品审核失败: 商品描述为空");
-                return null;
-            }
-            
-            // 检查价格是否合法
-            if (dto.getPrice() == null || dto.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
-                logger.warn("提交商品审核失败: 商品价格非法");
+            try {
+                // 检查描述是否为空
+                validateNotBlank(dto.getDescription(), "description");
+
+                // 检查价格是否合法
+                validateNotNull(dto.getPrice(), "price");
+                validatePositive(dto.getPrice(), "price");
+            } catch (IllegalArgumentException e) {
+                logBusinessWarning("提交商品审核失败: {}", e.getMessage());
                 return null;
             }
             
@@ -324,23 +349,45 @@ public class ProductServiceImpl implements ProductService {
                                          BigDecimal minPrice, BigDecimal maxPrice,
                                          String sortBy, String sortDirection,
                                          int pageNum, int pageSize) {
-        // 参数校验
-        if (pageNum < 1) {
-            pageNum = 1;
+        logMethodStart("findProducts", keyword, categoryId, pageNum, pageSize);
+
+        try {
+            // 参数校验
+            validatePagination(pageNum, pageSize);
+
+            // 修正参数范围
+            if (pageNum < 1) {
+                pageNum = 1;
+            }
+            if (pageSize < 1 || pageSize > 100) {
+                pageSize = 10; // 默认每页10条数据，最大100条
+            }
+        } catch (IllegalArgumentException e) {
+            logBusinessWarning("查询商品列表失败: {}", e.getMessage());
+            return createEmptyPageResult();
         }
-        if (pageSize < 1 || pageSize > 100) {
-            pageSize = 10; // 默认每页10条数据，最大100条
+
+        try {
+            // 调用DAO层查询
+            Map<String, Object> result = productDao.findProducts(keyword, categoryId, minPrice, maxPrice,
+                                         sortBy, sortDirection, pageNum, pageSize);
+
+            logMethodSuccess("findProducts", result);
+            return result;
+        } catch (Exception e) {
+            logMethodError("findProducts", e, keyword, categoryId, pageNum, pageSize);
+            return createEmptyPageResult();
         }
-        
-        // 调用DAO层查询
-        return productDao.findProducts(keyword, categoryId, minPrice, maxPrice, 
-                                     sortBy, sortDirection, pageNum, pageSize);
     }
     
     @Override
     public ProductDetailVO getProductDetailById(Long productId, Long currentUserId) {
-        if (productId == null) {
-            logger.warn("查询商品详情失败: 商品ID为空");
+        logMethodStart("getProductDetailById", productId, currentUserId);
+
+        try {
+            validateId(productId, "productId");
+        } catch (IllegalArgumentException e) {
+            logBusinessWarning("查询商品详情失败: {}", e.getMessage());
             return null;
         }
         
@@ -349,18 +396,19 @@ public class ProductServiceImpl implements ProductService {
         
         // 商品不存在
         if (productDetail == null) {
-            logger.warn("查询商品详情失败: 商品不存在, productId={}", productId);
+            logBusinessWarning("查询商品详情失败: 商品不存在, productId={}", productId);
             return null;
         }
-        
+
         // 检查权限：只有商品所有者和管理员才能查看非在售商品
-        if (productDetail.getStatus() != Product.STATUS_ONSALE && 
+        if (productDetail.getStatus() != Product.STATUS_ONSALE &&
             (currentUserId == null || !productDetail.getSellerId().equals(currentUserId))) {
-            logger.warn("查询商品详情失败: 无权查看非在售商品, productId={}, currentUserId={}, sellerId={}, status={}",
+            logBusinessWarning("查询商品详情失败: 无权查看非在售商品, productId={}, currentUserId={}, sellerId={}, status={}",
                      productId, currentUserId, productDetail.getSellerId(), productDetail.getStatus());
             return null;
         }
-        
+
+        logMethodSuccess("getProductDetailById", productDetail);
         return productDetail;
     }
     

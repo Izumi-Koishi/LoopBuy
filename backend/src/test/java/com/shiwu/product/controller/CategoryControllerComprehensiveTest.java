@@ -34,6 +34,13 @@ public class CategoryControllerComprehensiveTest extends TestBase {
         
         // 创建CategoryController实例
         categoryController = new CategoryController();
+
+        // 初始化路由（模拟Servlet容器的init调用）
+        try {
+            categoryController.init();
+        } catch (Exception e) {
+            fail("CategoryController初始化失败: " + e.getMessage());
+        }
         
         // 创建Mock对象
         request = mock(HttpServletRequest.class);
@@ -69,8 +76,7 @@ public class CategoryControllerComprehensiveTest extends TestBase {
         categoryController.doGet(request, response);
         
         // 验证响应
-        verify(response).setContentType("application/json");
-        verify(response).setCharacterEncoding("UTF-8");
+        verify(response).setContentType("application/json;charset=UTF-8");
         
         String responseContent = responseWriter.toString();
         assertNotNull(responseContent);
@@ -94,8 +100,7 @@ public class CategoryControllerComprehensiveTest extends TestBase {
         categoryController.doGet(request, response);
         
         // 验证响应
-        verify(response).setContentType("application/json");
-        verify(response).setCharacterEncoding("UTF-8");
+        verify(response).setContentType("application/json;charset=UTF-8");
         
         String responseContent = responseWriter.toString();
         assertNotNull(responseContent);
@@ -110,22 +115,23 @@ public class CategoryControllerComprehensiveTest extends TestBase {
     @Test
     public void testInvalidPath() throws Exception {
         logger.info("开始测试无效路径");
-        
+
         // 设置无效请求路径
         when(request.getPathInfo()).thenReturn("/invalid");
-        
+
         // 执行测试
         categoryController.doGet(request, response);
-        
-        // 验证响应
-        verify(response).setContentType("application/json");
-        verify(response).setCharacterEncoding("UTF-8");
-        
+
+        // 验证响应 - 更新为匹配BaseController的实际行为
+        verify(response).setStatus(404);
+        verify(response).setContentType("application/json;charset=UTF-8");
+        verify(response, atLeastOnce()).getWriter();
+
         String responseContent = responseWriter.toString();
         assertNotNull(responseContent);
         assertTrue(responseContent.contains("\"success\":false"));
-        assertTrue(responseContent.contains("请求路径不存在"));
-        
+        assertTrue(responseContent.contains("接口不存在"));
+
         logger.info("无效路径测试通过: response=" + responseContent);
     }
     
@@ -135,22 +141,23 @@ public class CategoryControllerComprehensiveTest extends TestBase {
     @Test
     public void testMultiLevelInvalidPath() throws Exception {
         logger.info("开始测试多级无效路径");
-        
+
         // 设置多级无效请求路径
         when(request.getPathInfo()).thenReturn("/invalid/path/test");
-        
+
         // 执行测试
         categoryController.doGet(request, response);
-        
-        // 验证响应
-        verify(response).setContentType("application/json");
-        verify(response).setCharacterEncoding("UTF-8");
-        
+
+        // 验证响应 - 更新为匹配BaseController的实际行为
+        verify(response).setStatus(404);
+        verify(response).setContentType("application/json;charset=UTF-8");
+        verify(response, atLeastOnce()).getWriter();
+
         String responseContent = responseWriter.toString();
         assertNotNull(responseContent);
         assertTrue(responseContent.contains("\"success\":false"));
-        assertTrue(responseContent.contains("请求路径不存在"));
-        
+        assertTrue(responseContent.contains("接口不存在"));
+
         logger.info("多级无效路径测试通过: response=" + responseContent);
     }
     
@@ -164,7 +171,7 @@ public class CategoryControllerComprehensiveTest extends TestBase {
         // 创建一个会抛出异常的CategoryController
         CategoryController exceptionController = new CategoryController() {
             @Override
-            protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws javax.servlet.ServletException, java.io.IOException {
+            public void doGet(HttpServletRequest req, HttpServletResponse resp) throws javax.servlet.ServletException, java.io.IOException {
                 // 模拟系统异常
                 throw new RuntimeException("系统异常");
             }
@@ -223,8 +230,7 @@ public class CategoryControllerComprehensiveTest extends TestBase {
         categoryController.doGet(request, response);
         
         // 验证响应格式
-        verify(response).setContentType("application/json");
-        verify(response).setCharacterEncoding("UTF-8");
+        verify(response).setContentType("application/json;charset=UTF-8");
         
         String responseContent = responseWriter.toString();
         assertNotNull(responseContent);

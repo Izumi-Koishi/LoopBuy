@@ -3,6 +3,7 @@ package com.shiwu.cart.dao;
 import com.shiwu.cart.model.CartItem;
 import com.shiwu.cart.model.CartItemVO;
 import com.shiwu.common.util.DBUtil;
+import com.shiwu.framework.annotation.Repository;
 import com.shiwu.product.model.ProductCardVO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,8 +15,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 购物车数据访问对象
+ * 购物车数据访问对象 - MVC框架版本
  */
+@Repository
 public class CartDao {
     private static final Logger logger = LoggerFactory.getLogger(CartDao.class);
 

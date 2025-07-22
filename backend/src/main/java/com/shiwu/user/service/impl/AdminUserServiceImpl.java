@@ -4,81 +4,100 @@ import com.shiwu.admin.enums.AuditActionEnum;
 import com.shiwu.admin.enums.AuditTargetTypeEnum;
 import com.shiwu.admin.model.AdminUserQueryDTO;
 import com.shiwu.admin.service.AuditLogService;
-import com.shiwu.admin.service.impl.AuditLogServiceImpl;
+import com.shiwu.framework.annotation.Autowired;
+import com.shiwu.framework.annotation.Service;
+import com.shiwu.framework.service.BaseService;
 import com.shiwu.user.dao.AdminUserDao;
 import com.shiwu.user.dao.UserDao;
 import com.shiwu.user.model.User;
 import com.shiwu.user.service.AdminUserService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
- * 管理员用户服务实现类
+ * 管理员用户服务实现类 - MVC框架版本
+ *
+ * 使用MVC框架的依赖注入，简化依赖管理
  * 实现NFR-SEC-03要求，在所有敏感操作中嵌入审计日志记录
+ * 支持用户管理、封禁、禁言等管理员功能
+ *
+ * @author LoopBuy Team
+ * @version 2.0 (MVC Framework)
  */
-public class AdminUserServiceImpl implements AdminUserService {
-    private static final Logger logger = LoggerFactory.getLogger(AdminUserServiceImpl.class);
-    
+@Service
+public class AdminUserServiceImpl extends BaseService implements AdminUserService {
+
     // 用户状态常量
     private static final Integer USER_STATUS_NORMAL = 0;
     private static final Integer USER_STATUS_BANNED = 1;
     private static final Integer USER_STATUS_MUTED = 2;
-    
-    private final AdminUserDao adminUserDao;
-    private final UserDao userDao;
-    private final AuditLogService auditLogService;
+
+    @Autowired
+    private AdminUserDao adminUserDao;
+
+    @Autowired
+    private UserDao userDao;
+
+    @Autowired
+    private AuditLogService auditLogService;
 
     public AdminUserServiceImpl() {
-        this.adminUserDao = new AdminUserDao();
-        this.userDao = new UserDao();
-        this.auditLogService = new AuditLogServiceImpl();
+        logger.info("AdminUserServiceImpl初始化完成 - 使用MVC框架依赖注入");
     }
 
-    // 用于测试的构造函数
+    // 兼容性构造函数，支持渐进式迁移
     public AdminUserServiceImpl(AdminUserDao adminUserDao, UserDao userDao, AuditLogService auditLogService) {
         this.adminUserDao = adminUserDao;
         this.userDao = userDao;
         this.auditLogService = auditLogService;
+        logger.info("AdminUserServiceImpl初始化完成 - 使用兼容性构造函数");
     }
 
     @Override
     public Map<String, Object> findUsers(AdminUserQueryDTO queryDTO) {
-        if (queryDTO == null) {
-            logger.warn("查询用户列表失败: 查询条件为空");
-            return null;
-        }
+        logMethodStart("findUsers", queryDTO);
 
         try {
+            validateNotNull(queryDTO, "queryDTO");
+            validatePagination(queryDTO.getPageNum(), queryDTO.getPageSize());
             // 查询用户列表
             List<Map<String, Object>> users = adminUserDao.findUsers(queryDTO);
 
             // 查询总数
             long totalCount = adminUserDao.countUsers(queryDTO);
 
-            // 构建返回结果
+            // 构建返回结果 - 保持原有的key名称
             Map<String, Object> result = new HashMap<>();
             result.put("users", users);
             result.put("totalCount", totalCount);
             result.put("page", queryDTO.getPageNum());
             result.put("pageSize", queryDTO.getPageSize());
             result.put("totalPages", (totalCount + queryDTO.getPageSize() - 1) / queryDTO.getPageSize());
-            
-            logger.info("查询用户列表成功: 共{}条记录", totalCount);
+
+            logBusinessInfo("查询用户列表成功: 共{}条记录", totalCount);
+            logMethodSuccess("findUsers", result);
             return result;
+        } catch (IllegalArgumentException e) {
+            logBusinessWarning("查询用户列表失败: {}", e.getMessage());
+            return null;
         } catch (Exception e) {
-            logger.error("查询用户列表失败: {}", e.getMessage(), e);
+            logMethodError("findUsers", e, queryDTO);
             return null;
         }
     }
 
     @Override
     public Map<String, Object> getUserDetail(Long userId, Long adminId) {
-        if (userId == null || adminId == null) {
-            logger.warn("获取用户详情失败: 参数为空");
+        logMethodStart("getUserDetail", userId, adminId);
+
+        try {
+            validateId(userId, "userId");
+            validateId(adminId, "adminId");
+        } catch (IllegalArgumentException e) {
+            logBusinessWarning("获取用户详情失败: {}", e.getMessage());
             return null;
         }
 

@@ -2,6 +2,7 @@ package com.shiwu.order.dao;
 
 import com.shiwu.common.util.DBUtil;
 import com.shiwu.common.util.JsonUtil;
+import com.shiwu.framework.annotation.Repository;
 import com.shiwu.order.model.Order;
 import com.shiwu.order.model.OrderVO;
 import com.shiwu.user.model.UserVO;
@@ -13,8 +14,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 订单数据访问对象
+ * 订单数据访问对象 - MVC框架版本
  */
+@Repository
 public class OrderDao {
     private static final Logger logger = LoggerFactory.getLogger(OrderDao.class);
 

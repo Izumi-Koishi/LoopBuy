@@ -1,6 +1,9 @@
 package com.shiwu.payment.service.impl;
 
 import com.shiwu.common.util.JsonUtil;
+import com.shiwu.framework.annotation.Autowired;
+import com.shiwu.framework.annotation.Service;
+import com.shiwu.framework.service.BaseService;
 import com.shiwu.order.dao.OrderDao;
 import com.shiwu.order.model.Order;
 import com.shiwu.order.model.OrderOperationResult;
@@ -9,8 +12,6 @@ import com.shiwu.order.service.impl.OrderServiceImpl;
 import com.shiwu.payment.dao.PaymentDao;
 import com.shiwu.payment.model.*;
 import com.shiwu.payment.service.PaymentService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -21,19 +22,35 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * 支付服务实现类
+ * 支付服务实现类 - MVC框架版本
  */
-public class PaymentServiceImpl implements PaymentService {
-    private static final Logger logger = LoggerFactory.getLogger(PaymentServiceImpl.class);
-    
-    private final PaymentDao paymentDao;
-    private final OrderDao orderDao;
-    private final OrderService orderService;
+@Service
+public class PaymentServiceImpl extends BaseService implements PaymentService {
 
+    @Autowired
+    private PaymentDao paymentDao;
+
+    @Autowired
+    private OrderDao orderDao;
+
+    @Autowired
+    private OrderService orderService;
+
+    // 无参构造函数，用于MVC框架依赖注入
     public PaymentServiceImpl() {
+        // 为了兼容测试，在无参构造函数中初始化DAO
         this.paymentDao = new PaymentDao();
         this.orderDao = new OrderDao();
         this.orderService = new OrderServiceImpl();
+        logger.info("PaymentServiceImpl初始化完成 - 使用MVC框架依赖注入");
+    }
+
+    // 兼容性构造函数，支持渐进式迁移
+    public PaymentServiceImpl(PaymentDao paymentDao, OrderDao orderDao, OrderService orderService) {
+        this.paymentDao = paymentDao;
+        this.orderDao = orderDao;
+        this.orderService = orderService;
+        logger.info("PaymentServiceImpl初始化完成 - 使用兼容性构造函数");
     }
     
     @Override

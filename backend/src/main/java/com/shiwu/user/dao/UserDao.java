@@ -1,6 +1,7 @@
 package com.shiwu.user.dao;
 
 import com.shiwu.common.util.DBUtil;
+import com.shiwu.framework.annotation.Repository;
 import com.shiwu.user.model.User;
 import com.shiwu.product.model.ProductCardVO;
 import org.slf4j.Logger;
@@ -15,8 +16,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 用户数据访问对象
+ * 用户数据访问对象 - MVC框架版本
  */
+@Repository
 public class UserDao {
     private static final Logger logger = LoggerFactory.getLogger(UserDao.class);
 

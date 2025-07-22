@@ -2,6 +2,7 @@ package com.shiwu.product.dao;
 
 import com.shiwu.admin.model.AdminProductQueryDTO;
 import com.shiwu.common.util.DBUtil;
+import com.shiwu.framework.annotation.Repository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,8 +14,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 管理员商品数据访问对象
+ * 管理员商品数据访问对象 - MVC框架版本
  */
+@Repository
 public class AdminProductDao {
     private static final Logger logger = LoggerFactory.getLogger(AdminProductDao.class);
 

@@ -1,6 +1,9 @@
 package com.shiwu.message.service.impl;
 
 import com.shiwu.common.result.Result;
+import com.shiwu.framework.annotation.Autowired;
+import com.shiwu.framework.annotation.Service;
+import com.shiwu.framework.service.BaseService;
 import com.shiwu.message.dao.ConversationDao;
 import com.shiwu.message.dao.MessageDao;
 import com.shiwu.message.dto.MessageSendDTO;
@@ -10,50 +13,60 @@ import com.shiwu.message.service.MessageService;
 import com.shiwu.message.vo.ConversationVO;
 import com.shiwu.message.vo.MessageVO;
 import com.shiwu.notification.service.NotificationService;
-import com.shiwu.notification.service.impl.NotificationServiceImpl;
 import com.shiwu.user.dao.UserDao;
 import com.shiwu.user.model.User;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 消息服务实现类
+ * 消息服务实现类 - MVC框架版本
  *
  * 实现实时消息收发、会话管理等功能
  * 支持基于轮询的实时消息推送
  *
+ * 使用MVC框架的@Service注解和@Autowired依赖注入
+ * 继承BaseService获得通用功能支持
+ *
  * Task4_3_1_2: 在消息发送时创建通知
  *
  * @author LoopBuy Team
- * @version 1.0
+ * @version 2.0 (MVC Framework)
  */
-public class MessageServiceImpl implements MessageService {
+@Service
+public class MessageServiceImpl extends BaseService implements MessageService {
 
-    private static final Logger logger = LoggerFactory.getLogger(MessageServiceImpl.class);
+    @Autowired
+    private MessageDao messageDao;
 
-    private final MessageDao messageDao;
-    private final ConversationDao conversationDao;
-    private final NotificationService notificationService;
-    private final UserDao userDao;
+    @Autowired
+    private ConversationDao conversationDao;
 
+    @Autowired
+    private NotificationService notificationService;
+
+    @Autowired
+    private UserDao userDao;
+
+    /**
+     * 默认构造函数 - MVC框架会自动注入依赖
+     */
     public MessageServiceImpl() {
-        this.messageDao = new MessageDao();
-        this.conversationDao = new ConversationDao();
-        this.notificationService = new NotificationServiceImpl();
-        this.userDao = new UserDao();
+        logger.info("MessageServiceImpl初始化 - 使用MVC框架依赖注入");
     }
 
-    // 用于测试的构造函数
+    /**
+     * 兼容性构造函数 - 用于测试或非MVC环境
+     * 保持向后兼容性，支持渐进式迁移
+     */
     public MessageServiceImpl(MessageDao messageDao, ConversationDao conversationDao,
-                            NotificationService notificationService, UserDao userDao) {
+                             NotificationService notificationService, UserDao userDao) {
         this.messageDao = messageDao;
         this.conversationDao = conversationDao;
         this.notificationService = notificationService;
         this.userDao = userDao;
+        logger.info("MessageServiceImpl初始化 - 使用手动依赖注入（兼容模式）");
     }
     
     @Override

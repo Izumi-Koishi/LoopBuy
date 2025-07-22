@@ -8,37 +8,45 @@ import com.shiwu.admin.service.AdminService;
 import com.shiwu.admin.service.AuditLogService;
 //import com.shiwu.admin.service.impl.AuditLogServiceImpl;
 import com.shiwu.common.util.JwtUtil;
+import com.shiwu.framework.annotation.Autowired;
+import com.shiwu.framework.annotation.Service;
+import com.shiwu.framework.service.BaseService;
 import org.mindrot.jbcrypt.BCrypt;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 管理员服务实现类
+ * 管理员服务实现类 - MVC框架版本
  */
-public class AdminServiceImpl implements AdminService {
-    private static final Logger logger = LoggerFactory.getLogger(AdminServiceImpl.class);
+@Service
+public class AdminServiceImpl extends BaseService implements AdminService {
     private static final Integer ADMIN_STATUS_NORMAL = 1;
     private static final Integer ADMIN_STATUS_DISABLED = 0;
 
-    private final AdminDao adminDao;
-    private final AuditLogService auditLogService;
+    @Autowired
+    private AdminDao adminDao;
+
+    @Autowired
+    private AuditLogService auditLogService;
 
     // 存储待确认的操作上下文（生产环境应使用Redis等缓存）
     private final Map<String, OperationContext> operationContexts = new ConcurrentHashMap<>();
 
+    // 无参构造函数，用于MVC框架依赖注入
     public AdminServiceImpl() {
+        // 为了兼容测试，在无参构造函数中初始化DAO
         this.adminDao = new AdminDao();
         this.auditLogService = new AuditLogServiceImpl();
+        logger.info("AdminServiceImpl初始化完成 - 使用MVC框架依赖注入");
     }
 
-    // 用于测试的构造函数，支持依赖注入
+    // 兼容性构造函数，支持渐进式迁移
     public AdminServiceImpl(AdminDao adminDao, AuditLogService auditLogService) {
         this.adminDao = adminDao;
         this.auditLogService = auditLogService;
+        logger.info("AdminServiceImpl初始化完成 - 使用兼容性构造函数");
     }
 
     @Override

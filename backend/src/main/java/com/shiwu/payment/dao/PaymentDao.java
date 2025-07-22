@@ -1,6 +1,7 @@
 package com.shiwu.payment.dao;
 
 import com.shiwu.common.util.DBUtil;
+import com.shiwu.framework.annotation.Repository;
 import com.shiwu.payment.model.Payment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,8 +11,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 支付数据访问对象
+ * 支付数据访问对象 - MVC框架版本
  */
+@Repository
 public class PaymentDao {
     private static final Logger logger = LoggerFactory.getLogger(PaymentDao.class);
 

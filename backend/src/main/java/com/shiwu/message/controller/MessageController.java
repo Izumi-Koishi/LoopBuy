@@ -1,350 +1,258 @@
 package com.shiwu.message.controller;
 
 import com.shiwu.common.result.Result;
-import com.shiwu.common.util.JsonUtil;
 import com.shiwu.common.util.JwtUtil;
+import com.shiwu.framework.annotation.Autowired;
+import com.shiwu.framework.annotation.Controller;
+import com.shiwu.framework.annotation.PathVariable;
+import com.shiwu.framework.annotation.RequestMapping;
+import com.shiwu.framework.annotation.RequestParam;
+import com.shiwu.framework.web.BaseController;
 import com.shiwu.message.dto.MessageSendDTO;
 import com.shiwu.message.service.MessageService;
-import com.shiwu.message.service.impl.MessageServiceImpl;
 import com.shiwu.message.vo.ConversationVO;
 import com.shiwu.message.vo.MessageVO;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
-import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import java.io.IOException;
-import java.io.PrintWriter;
 import java.util.List;
 
 /**
- * 消息控制器
- * 
+ * 消息控制器 - MVC框架版本
+ *
  * 处理实时消息收发相关的HTTP请求
  * 支持基于轮询的实时消息推送
- * 
+ *
+ * 使用MVC框架的注解驱动方式，大幅简化代码
+ * 继承BaseController获得路由分发和统一处理功能
+ *
  * @author LoopBuy Team
- * @version 1.0
+ * @version 2.0 (MVC Framework)
  */
+@Controller
 @WebServlet("/api/message/*")
-public class MessageController extends HttpServlet {
-    
-    private static final Logger logger = LoggerFactory.getLogger(MessageController.class);
-    
+public class MessageController extends BaseController {
+
+    @Autowired
     private MessageService messageService;
-    
-    @Override
-    public void init() throws ServletException {
-        super.init();
-        this.messageService = new MessageServiceImpl();
-        logger.info("MessageController初始化完成");
+
+    public MessageController() {
+        // 使用BaseController的logger
+        logger.info("MessageController初始化完成 - 使用MVC框架依赖注入");
     }
-    
-    @Override
-    protected void doGet(HttpServletRequest request, HttpServletResponse response) 
-            throws ServletException, IOException {
-        
-        String pathInfo = request.getPathInfo();
-        logger.debug("处理GET请求: {}", pathInfo);
-        
-        try {
-            if (pathInfo == null || pathInfo.equals("/")) {
-                handleGetConversations(request, response);
-            } else if (pathInfo.startsWith("/conversations")) {
-                handleGetConversations(request, response);
-            } else if (pathInfo.startsWith("/history/")) {
-                handleGetMessageHistory(request, response);
-            } else if (pathInfo.startsWith("/new")) {
-                handleGetNewMessages(request, response);
-            } else if (pathInfo.startsWith("/unread-count")) {
-                handleGetUnreadCount(request, response);
-            } else if (pathInfo.startsWith("/conversation/")) {
-                handleGetConversationDetail(request, response);
-            } else {
-                sendErrorResponse(response, 404, "接口不存在");
-            }
-        } catch (Exception e) {
-            logger.error("处理GET请求时发生异常: {}", pathInfo, e);
-            sendErrorResponse(response, 500, "服务器内部错误");
-        }
-    }
-    
-    @Override
-    protected void doPost(HttpServletRequest request, HttpServletResponse response) 
-            throws ServletException, IOException {
-        
-        String pathInfo = request.getPathInfo();
-        logger.debug("处理POST请求: {}", pathInfo);
-        
-        try {
-            if (pathInfo == null || pathInfo.equals("/") || pathInfo.equals("/send")) {
-                handleSendMessage(request, response);
-            } else if (pathInfo.startsWith("/conversation")) {
-                handleCreateConversation(request, response);
-            } else {
-                sendErrorResponse(response, 404, "接口不存在");
-            }
-        } catch (Exception e) {
-            logger.error("处理POST请求时发生异常: {}", pathInfo, e);
-            sendErrorResponse(response, 500, "服务器内部错误");
-        }
-    }
-    
-    @Override
-    protected void doPut(HttpServletRequest request, HttpServletResponse response) 
-            throws ServletException, IOException {
-        
-        String pathInfo = request.getPathInfo();
-        logger.debug("处理PUT请求: {}", pathInfo);
-        
-        try {
-            if (pathInfo != null && pathInfo.startsWith("/read/")) {
-                handleMarkAsRead(request, response);
-            } else if (pathInfo != null && pathInfo.startsWith("/conversation/")) {
-                handleUpdateConversationStatus(request, response);
-            } else {
-                sendErrorResponse(response, 404, "接口不存在");
-            }
-        } catch (Exception e) {
-            logger.error("处理PUT请求时发生异常: {}", pathInfo, e);
-            sendErrorResponse(response, 500, "服务器内部错误");
-        }
-    }
-    
+
     /**
-     * 发送消息
+     * 获取会话列表 - 主路径
      */
-    private void handleSendMessage(HttpServletRequest request, HttpServletResponse response) 
-            throws IOException {
-        
+    @RequestMapping(value = "/api/message/conversations", method = "GET")
+    public Result<List<ConversationVO>> getConversations(
+            @RequestParam(value = "page", defaultValue = "1") Integer page,
+            @RequestParam(value = "size", defaultValue = "20") Integer size,
+            HttpServletRequest request) {
+
+        logger.debug("获取会话列表: page={}, size={}", page, size);
+
         // 验证用户身份
         Long userId = getUserIdFromToken(request);
         if (userId == null) {
-            sendErrorResponse(response, 401, "未授权访问");
-            return;
+            return Result.fail("401", "未授权访问");
         }
-        
-        // 解析请求体
-        String requestBody = getRequestBody(request);
-        if (requestBody == null || requestBody.trim().isEmpty()) {
-            sendErrorResponse(response, 400, "请求体不能为空");
-            return;
-        }
-        
-        try {
-            MessageSendDTO dto = JsonUtil.fromJson(requestBody, MessageSendDTO.class);
-            if (dto == null) {
-                sendErrorResponse(response, 400, "请求格式错误");
-                return;
-            }
-            
-            Result<MessageVO> result = messageService.sendMessage(userId, dto);
-            sendJsonResponse(response, result);
-            
-        } catch (Exception e) {
-            logger.error("发送消息时解析请求失败: userId={}", userId, e);
-            sendErrorResponse(response, 400, "请求格式错误");
-        }
+
+        return messageService.getConversations(userId, page, size);
     }
-    
+
     /**
-     * 获取会话列表
+     * 获取会话列表 - 兼容性路径 (原来的 /api/message/)
      */
-    private void handleGetConversations(HttpServletRequest request, HttpServletResponse response) 
-            throws IOException {
-        
-        // 验证用户身份
-        Long userId = getUserIdFromToken(request);
-        if (userId == null) {
-            sendErrorResponse(response, 401, "未授权访问");
-            return;
-        }
-        
-        // 获取分页参数
-        int page = getIntParameter(request, "page", 1);
-        int size = getIntParameter(request, "size", 20);
-        
-        Result<List<ConversationVO>> result = messageService.getConversations(userId, page, size);
-        sendJsonResponse(response, result);
+    @RequestMapping(value = "/api/message/", method = "GET")
+    public Result<List<ConversationVO>> getConversationsCompat(
+            @RequestParam(value = "page", defaultValue = "1") Integer page,
+            @RequestParam(value = "size", defaultValue = "20") Integer size,
+            HttpServletRequest request) {
+
+        return getConversations(page, size, request);
     }
-    
+
     /**
      * 获取消息历史
      */
-    private void handleGetMessageHistory(HttpServletRequest request, HttpServletResponse response) 
-            throws IOException {
-        
+    @RequestMapping(value = "/api/message/history/{conversationId}", method = "GET")
+    public Result<List<MessageVO>> getMessageHistory(
+            @PathVariable("conversationId") String conversationId,
+            @RequestParam(value = "page", defaultValue = "1") Integer page,
+            @RequestParam(value = "size", defaultValue = "50") Integer size,
+            HttpServletRequest request) {
+
+        logger.debug("获取消息历史: conversationId={}, page={}, size={}", conversationId, page, size);
+
         // 验证用户身份
         Long userId = getUserIdFromToken(request);
         if (userId == null) {
-            sendErrorResponse(response, 401, "未授权访问");
-            return;
+            return Result.fail("401", "未授权访问");
         }
-        
-        // 提取会话ID
-        String pathInfo = request.getPathInfo();
-        String conversationId = extractConversationId(pathInfo, "/history/");
-        if (conversationId == null) {
-            sendErrorResponse(response, 400, "会话ID不能为空");
-            return;
-        }
-        
-        // 获取分页参数
-        int page = getIntParameter(request, "page", 1);
-        int size = getIntParameter(request, "size", 50);
-        
-        Result<List<MessageVO>> result = messageService.getMessageHistory(userId, conversationId, page, size);
-        sendJsonResponse(response, result);
+
+        return messageService.getMessageHistory(userId, conversationId, page, size);
     }
-    
+
     /**
      * 获取新消息（轮询接口）
      */
-    private void handleGetNewMessages(HttpServletRequest request, HttpServletResponse response) 
-            throws IOException {
-        
+    @RequestMapping(value = "/api/message/new", method = "GET")
+    public Result<List<MessageVO>> getNewMessages(
+            @RequestParam(value = "lastMessageTime", defaultValue = "0") Long lastMessageTime,
+            HttpServletRequest request) {
+
+        logger.debug("获取新消息: lastMessageTime={}", lastMessageTime);
+
         // 验证用户身份
         Long userId = getUserIdFromToken(request);
         if (userId == null) {
-            sendErrorResponse(response, 401, "未授权访问");
-            return;
+            return Result.fail("401", "未授权访问");
         }
-        
-        // 获取上次消息时间
-        Long lastMessageTime = getLongParameter(request, "lastMessageTime", 0L);
-        
-        Result<List<MessageVO>> result = messageService.getNewMessages(userId, lastMessageTime);
-        sendJsonResponse(response, result);
+
+        return messageService.getNewMessages(userId, lastMessageTime);
     }
-    
+
     /**
      * 获取未读消息数量
      */
-    private void handleGetUnreadCount(HttpServletRequest request, HttpServletResponse response) 
-            throws IOException {
-        
+    @RequestMapping(value = "/api/message/unread-count", method = "GET")
+    public Result<Integer> getUnreadCount(HttpServletRequest request) {
+
+        logger.debug("获取未读消息数量");
+
         // 验证用户身份
         Long userId = getUserIdFromToken(request);
         if (userId == null) {
-            sendErrorResponse(response, 401, "未授权访问");
-            return;
+            return Result.fail("401", "未授权访问");
         }
-        
-        Result<Integer> result = messageService.getUnreadMessageCount(userId);
-        sendJsonResponse(response, result);
+
+        return messageService.getUnreadMessageCount(userId);
     }
-    
+
     /**
      * 获取会话详情
      */
-    private void handleGetConversationDetail(HttpServletRequest request, HttpServletResponse response) 
-            throws IOException {
-        
+    @RequestMapping(value = "/api/message/conversation/{conversationId}", method = "GET")
+    public Result<ConversationVO> getConversationDetail(
+            @PathVariable("conversationId") String conversationId,
+            HttpServletRequest request) {
+
+        logger.debug("获取会话详情: conversationId={}", conversationId);
+
         // 验证用户身份
         Long userId = getUserIdFromToken(request);
         if (userId == null) {
-            sendErrorResponse(response, 401, "未授权访问");
-            return;
+            return Result.fail("401", "未授权访问");
         }
-        
-        // 提取会话ID
-        String pathInfo = request.getPathInfo();
-        String conversationId = extractConversationId(pathInfo, "/conversation/");
-        if (conversationId == null) {
-            sendErrorResponse(response, 400, "会话ID不能为空");
-            return;
-        }
-        
-        Result<ConversationVO> result = messageService.getConversationDetail(userId, conversationId);
-        sendJsonResponse(response, result);
+
+        return messageService.getConversationDetail(userId, conversationId);
     }
-    
+
+    /**
+     * 发送消息 - 主路径
+     */
+    @RequestMapping(value = "/api/message/send", method = "POST")
+    public Result<MessageVO> sendMessage(HttpServletRequest request) {
+
+        logger.debug("发送消息");
+
+        // 验证用户身份
+        Long userId = getUserIdFromToken(request);
+        if (userId == null) {
+            return Result.fail("401", "未授权访问");
+        }
+
+        try {
+            // 解析请求体
+            MessageSendDTO dto = parseRequestBody(request, MessageSendDTO.class);
+            if (dto == null) {
+                return Result.fail("400", "请求体不能为空或格式错误");
+            }
+
+            return messageService.sendMessage(userId, dto);
+
+        } catch (Exception e) {
+            logger.error("发送消息时解析请求失败: userId={}", userId, e);
+            return Result.fail("400", "请求格式错误");
+        }
+    }
+
+    /**
+     * 发送消息 - 兼容性路径 (原来的 /api/message/)
+     */
+    @RequestMapping(value = "/api/message/", method = "POST")
+    public Result<MessageVO> sendMessageCompat(HttpServletRequest request) {
+        return sendMessage(request);
+    }
+
     /**
      * 创建会话
      */
-    private void handleCreateConversation(HttpServletRequest request, HttpServletResponse response) 
-            throws IOException {
-        
+    @RequestMapping(value = "/api/message/conversation", method = "POST")
+    public Result<ConversationVO> createConversation(
+            @RequestParam("otherUserId") Long otherUserId,
+            @RequestParam(value = "productId", required = false) Long productId,
+            HttpServletRequest request) {
+
+        logger.debug("创建会话: otherUserId={}, productId={}", otherUserId, productId);
+
         // 验证用户身份
         Long userId = getUserIdFromToken(request);
         if (userId == null) {
-            sendErrorResponse(response, 401, "未授权访问");
-            return;
+            return Result.fail("401", "未授权访问");
         }
-        
-        // 获取参数
-        Long otherUserId = getLongParameter(request, "otherUserId", null);
-        Long productId = getLongParameter(request, "productId", null);
-        
+
         if (otherUserId == null) {
-            sendErrorResponse(response, 400, "对方用户ID不能为空");
-            return;
+            return Result.fail("400", "对方用户ID不能为空");
         }
-        
-        Result<ConversationVO> result = messageService.getOrCreateConversation(userId, otherUserId, productId);
-        sendJsonResponse(response, result);
+
+        return messageService.getOrCreateConversation(userId, otherUserId, productId);
     }
-    
+
     /**
      * 标记消息为已读
      */
-    private void handleMarkAsRead(HttpServletRequest request, HttpServletResponse response) 
-            throws IOException {
-        
+    @RequestMapping(value = "/api/message/read/{conversationId}", method = "PUT")
+    public Result<Void> markAsRead(
+            @PathVariable("conversationId") String conversationId,
+            HttpServletRequest request) {
+
+        logger.debug("标记消息为已读: conversationId={}", conversationId);
+
         // 验证用户身份
         Long userId = getUserIdFromToken(request);
         if (userId == null) {
-            sendErrorResponse(response, 401, "未授权访问");
-            return;
+            return Result.fail("401", "未授权访问");
         }
-        
-        // 提取会话ID
-        String pathInfo = request.getPathInfo();
-        String conversationId = extractConversationId(pathInfo, "/read/");
-        if (conversationId == null) {
-            sendErrorResponse(response, 400, "会话ID不能为空");
-            return;
-        }
-        
-        Result<Void> result = messageService.markMessagesAsRead(userId, conversationId);
-        sendJsonResponse(response, result);
+
+        return messageService.markMessagesAsRead(userId, conversationId);
     }
-    
+
     /**
      * 更新会话状态
      */
-    private void handleUpdateConversationStatus(HttpServletRequest request, HttpServletResponse response) 
-            throws IOException {
-        
+    @RequestMapping(value = "/api/message/conversation/{conversationId}", method = "PUT")
+    public Result<Void> updateConversationStatus(
+            @PathVariable("conversationId") String conversationId,
+            @RequestParam("status") String status,
+            HttpServletRequest request) {
+
+        logger.debug("更新会话状态: conversationId={}, status={}", conversationId, status);
+
         // 验证用户身份
         Long userId = getUserIdFromToken(request);
         if (userId == null) {
-            sendErrorResponse(response, 401, "未授权访问");
-            return;
+            return Result.fail("401", "未授权访问");
         }
-        
-        // 提取会话ID
-        String pathInfo = request.getPathInfo();
-        String conversationId = extractConversationId(pathInfo, "/conversation/");
-        if (conversationId == null) {
-            sendErrorResponse(response, 400, "会话ID不能为空");
-            return;
-        }
-        
-        // 获取状态参数
-        String status = request.getParameter("status");
+
         if (status == null || status.trim().isEmpty()) {
-            sendErrorResponse(response, 400, "状态不能为空");
-            return;
+            return Result.fail("400", "状态不能为空");
         }
-        
-        Result<Void> result = messageService.updateConversationStatus(userId, conversationId, status);
-        sendJsonResponse(response, result);
+
+        return messageService.updateConversationStatus(userId, conversationId, status);
     }
-    
+
     /**
      * 从JWT Token中获取用户ID
      */
@@ -353,7 +261,7 @@ public class MessageController extends HttpServlet {
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             return null;
         }
-        
+
         String token = authHeader.substring(7);
         try {
             return JwtUtil.getUserIdFromToken(token);
@@ -362,91 +270,5 @@ public class MessageController extends HttpServlet {
             return null;
         }
     }
-    
-    /**
-     * 获取请求体内容
-     */
-    private String getRequestBody(HttpServletRequest request) throws IOException {
-        StringBuilder sb = new StringBuilder();
-        String line;
-        while ((line = request.getReader().readLine()) != null) {
-            sb.append(line);
-        }
-        return sb.toString();
-    }
-    
-    /**
-     * 获取整数参数
-     */
-    private int getIntParameter(HttpServletRequest request, String name, int defaultValue) {
-        String value = request.getParameter(name);
-        if (value == null || value.trim().isEmpty()) {
-            return defaultValue;
-        }
-        try {
-            return Integer.parseInt(value);
-        } catch (NumberFormatException e) {
-            return defaultValue;
-        }
-    }
-    
-    /**
-     * 获取长整数参数
-     */
-    private Long getLongParameter(HttpServletRequest request, String name, Long defaultValue) {
-        String value = request.getParameter(name);
-        if (value == null || value.trim().isEmpty()) {
-            return defaultValue;
-        }
-        try {
-            return Long.parseLong(value);
-        } catch (NumberFormatException e) {
-            return defaultValue;
-        }
-    }
-    
-    /**
-     * 从路径中提取会话ID
-     */
-    private String extractConversationId(String pathInfo, String prefix) {
-        if (pathInfo == null || !pathInfo.startsWith(prefix)) {
-            return null;
-        }
-        
-        String conversationId = pathInfo.substring(prefix.length());
-        if (conversationId.isEmpty()) {
-            return null;
-        }
-        
-        // 移除可能的查询参数
-        int queryIndex = conversationId.indexOf('?');
-        if (queryIndex > 0) {
-            conversationId = conversationId.substring(0, queryIndex);
-        }
-        
-        return conversationId;
-    }
-    
-    /**
-     * 发送JSON响应
-     */
-    private void sendJsonResponse(HttpServletResponse response, Object data) throws IOException {
-        response.setContentType("application/json;charset=UTF-8");
-        response.setCharacterEncoding("UTF-8");
-        
-        try (PrintWriter writer = response.getWriter()) {
-            String json = JsonUtil.toJson(data);
-            writer.write(json);
-            writer.flush();
-        }
-    }
-    
-    /**
-     * 发送错误响应
-     */
-    private void sendErrorResponse(HttpServletResponse response, int status, String message) throws IOException {
-        response.setStatus(status);
-        Result<Object> errorResult = Result.error(message);
-        sendJsonResponse(response, errorResult);
-    }
+
 }

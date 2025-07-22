@@ -9,31 +9,38 @@ import com.shiwu.admin.model.Administrator;
 import com.shiwu.admin.model.AuditLog;
 import com.shiwu.admin.service.AuditLogService;
 import com.shiwu.admin.vo.AuditLogVO;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.shiwu.framework.annotation.Autowired;
+import com.shiwu.framework.annotation.Service;
+import com.shiwu.framework.service.BaseService;
 
 import java.util.*;
 
 /**
- * 审计日志服务实现
+ * 审计日志服务实现 - MVC框架版本
  * 实现NFR-SEC-03要求的审计日志功能
  */
-public class AuditLogServiceImpl implements AuditLogService {
-    
-    private static final Logger logger = LoggerFactory.getLogger(AuditLogServiceImpl.class);
-    
-    private final AuditLogDao auditLogDao;
-    private final AdminDao adminDao;
-    
+@Service
+public class AuditLogServiceImpl extends BaseService implements AuditLogService {
+
+    @Autowired
+    private AuditLogDao auditLogDao;
+
+    @Autowired
+    private AdminDao adminDao;
+
+    // 无参构造函数，用于MVC框架依赖注入
     public AuditLogServiceImpl() {
+        // 为了兼容测试，在无参构造函数中初始化DAO
         this.auditLogDao = new AuditLogDao();
         this.adminDao = new AdminDao();
+        logger.info("AuditLogServiceImpl初始化完成 - 使用MVC框架依赖注入");
     }
-    
-    // 用于测试的构造函数
+
+    // 兼容性构造函数，支持渐进式迁移
     public AuditLogServiceImpl(AuditLogDao auditLogDao, AdminDao adminDao) {
         this.auditLogDao = auditLogDao;
         this.adminDao = adminDao;
+        logger.info("AuditLogServiceImpl初始化完成 - 使用兼容性构造函数");
     }
     
     @Override

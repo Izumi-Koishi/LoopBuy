@@ -1,6 +1,7 @@
 package com.shiwu.product.dao;
 
 import com.shiwu.common.util.DBUtil;
+import com.shiwu.framework.annotation.Repository;
 import com.shiwu.product.model.Category;
 import com.shiwu.product.model.CategoryVO;
 import org.slf4j.Logger;
@@ -15,8 +16,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 商品分类数据访问对象
+ * 商品分类数据访问对象 - MVC框架版本
  */
+@Repository
 public class CategoryDao {
     private static final Logger logger = LoggerFactory.getLogger(CategoryDao.class);
 

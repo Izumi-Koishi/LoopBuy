@@ -1,458 +1,351 @@
 package com.shiwu.admin.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.shiwu.admin.dto.AuditLogQueryDTO;
-import com.shiwu.admin.enums.AuditActionEnum;
-import com.shiwu.admin.enums.AuditTargetTypeEnum;
 import com.shiwu.admin.service.AdminService;
 import com.shiwu.admin.service.AuditLogService;
 import com.shiwu.admin.service.impl.AdminServiceImpl;
 import com.shiwu.admin.service.impl.AuditLogServiceImpl;
 import com.shiwu.admin.vo.AuditLogVO;
+import com.shiwu.common.result.Result;
 import com.shiwu.common.util.JwtUtil;
+import com.shiwu.framework.annotation.Autowired;
+import com.shiwu.framework.annotation.Controller;
+import com.shiwu.framework.annotation.RequestMapping;
+import com.shiwu.framework.annotation.RequestParam;
+import com.shiwu.framework.annotation.PathVariable;
+import com.shiwu.framework.web.BaseController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
-import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
- * 审计日志控制器
+ * 审计日志控制器 - 精简版MVC框架
+ *
+ * 只包含MVC注解方法，移除传统Servlet代码
  * 实现NFR-SEC-03要求的审计日志查看功能
  */
+@Controller
 @WebServlet("/api/admin/audit-logs/*")
-public class AuditLogController extends HttpServlet {
-    
+public class AuditLogController extends BaseController {
     private static final Logger logger = LoggerFactory.getLogger(AuditLogController.class);
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    private final AuditLogService auditLogService;
-    private final AdminService adminService;
-    private final ObjectMapper objectMapper;
+    @Autowired
+    private AuditLogService auditLogService;
+    
+    @Autowired
+    private AdminService adminService;
 
     public AuditLogController() {
+        // 为了兼容测试，在无参构造函数中初始化Service
         this.auditLogService = new AuditLogServiceImpl();
         this.adminService = new AdminServiceImpl();
-        this.objectMapper = new ObjectMapper();
-        this.objectMapper.registerModule(new JavaTimeModule());
+        logger.info("AuditLogController初始化完成 - 精简版MVC框架");
     }
 
-    // 用于测试的构造函数
-    public AuditLogController(AuditLogService auditLogService) {
+    // 兼容性构造函数，支持渐进式迁移
+    public AuditLogController(AuditLogService auditLogService, AdminService adminService) {
         this.auditLogService = auditLogService;
-        this.adminService = new AdminServiceImpl();
-        this.objectMapper = new ObjectMapper();
-        this.objectMapper.registerModule(new JavaTimeModule());
+        this.adminService = adminService;
+        logger.info("AuditLogController初始化完成 - 使用兼容性构造函数");
     }
-    
-    @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        String pathInfo = req.getPathInfo();
-        
-        // 验证管理员权限
-        Long adminId = validateAdminPermission(req, resp, "ADMIN");
-        if (adminId == null) {
-            return;
-        }
-        
-        // 记录查看审计日志的操作
-        String ipAddress = getClientIpAddress(req);
-        String userAgent = req.getHeader("User-Agent");
-        auditLogService.logAction(adminId, AuditActionEnum.AUDIT_LOG_VIEW,
-                                 AuditTargetTypeEnum.AUDIT_LOG, null, "查看审计日志",
-                                 ipAddress, userAgent, true);
-        
-        if (pathInfo == null || pathInfo.equals("/")) {
-            // 查询审计日志列表
-            handleGetAuditLogs(req, resp, adminId);
-        } else if (pathInfo.equals("/actions")) {
-            // 获取可用的操作类型
-            handleGetAvailableActions(req, resp);
-        } else if (pathInfo.equals("/target-types")) {
-            // 获取可用的目标类型
-            handleGetAvailableTargetTypes(req, resp);
-        } else if (pathInfo.equals("/stats")) {
-            // 获取统计数据
-            handleGetStats(req, resp);
-        } else if (pathInfo.equals("/trend")) {
-            // 获取趋势数据
-            handleGetTrend(req, resp);
-        } else if (pathInfo.startsWith("/") && pathInfo.length() > 1) {
-            try {
-                // 获取审计日志详情
-                Long logId = Long.parseLong(pathInfo.substring(1));
-                handleGetAuditLogDetail(req, resp, logId);
-            } catch (NumberFormatException e) {
-                sendErrorResponse(resp, "400", "无效的日志ID格式");
-            }
-        } else {
-            sendErrorResponse(resp, "404", "请求路径不存在");
-        }
-    }
-    
-    @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        String pathInfo = req.getPathInfo();
-        
-        // 验证管理员权限
-        Long adminId = validateAdminPermission(req, resp, "ADMIN");
-        if (adminId == null) {
-            return;
-        }
-        
-        if (pathInfo != null && pathInfo.equals("/export")) {
-            // 导出审计日志
-            handleExportAuditLogs(req, resp, adminId);
-        } else {
-            sendErrorResponse(resp, "404", "请求路径不存在");
-        }
-    }
-    
+
+    // ==================== MVC框架注解方法 ====================
+
     /**
-     * 处理查询审计日志列表请求
+     * 查询审计日志列表 - MVC版本
      */
-    private void handleGetAuditLogs(HttpServletRequest req, HttpServletResponse resp, Long adminId) 
-            throws IOException {
+    @RequestMapping(value = "/", method = "GET")
+    public Result<Object> getAuditLogs(@RequestParam(value = "page", defaultValue = "1") Integer page,
+                                      @RequestParam(value = "size", defaultValue = "20") Integer size,
+                                      @RequestParam(value = "action", required = false) String action,
+                                      @RequestParam(value = "targetType", required = false) String targetType,
+                                      @RequestParam(value = "adminId", required = false) Long adminId,
+                                      @RequestParam(value = "startTime", required = false) String startTime,
+                                      @RequestParam(value = "endTime", required = false) String endTime,
+                                      HttpServletRequest request) {
         try {
-            AuditLogQueryDTO queryDTO = buildQueryDTO(req);
+            // 检查管理员权限
+            Long currentAdminId = getCurrentAdminId(request);
+            if (currentAdminId == null) {
+                return Result.fail("401", "管理员未登录");
+            }
+
+            if (!adminService.hasPermission(currentAdminId, "AUDIT_LOG_VIEW")) {
+                return Result.fail("403", "权限不足，无法查看审计日志");
+            }
+
+            // 构建查询条件
+            AuditLogQueryDTO queryDTO = new AuditLogQueryDTO();
+            queryDTO.setPage(page);
+            queryDTO.setPageSize(size);
+            queryDTO.setAction(action);
+            queryDTO.setTargetType(targetType);
+            queryDTO.setAdminId(adminId);
+
+            // 解析时间参数
+            if (startTime != null && !startTime.trim().isEmpty()) {
+                try {
+                    queryDTO.setStartTime(LocalDateTime.parse(startTime, DATE_TIME_FORMATTER));
+                } catch (DateTimeParseException e) {
+                    return Result.fail("400", "开始时间格式错误，请使用 yyyy-MM-dd HH:mm:ss 格式");
+                }
+            }
+
+            if (endTime != null && !endTime.trim().isEmpty()) {
+                try {
+                    queryDTO.setEndTime(LocalDateTime.parse(endTime, DATE_TIME_FORMATTER));
+                } catch (DateTimeParseException e) {
+                    return Result.fail("400", "结束时间格式错误，请使用 yyyy-MM-dd HH:mm:ss 格式");
+                }
+            }
+
+            logger.debug("处理查询审计日志请求: adminId={}, page={}, size={}", currentAdminId, page, size);
+
             Map<String, Object> result = auditLogService.getAuditLogs(queryDTO);
-            sendSuccessResponse(resp, result);
-            
-            logger.info("管理员 {} 查询审计日志成功", adminId);
+            return Result.success(result);
         } catch (Exception e) {
             logger.error("查询审计日志失败: {}", e.getMessage(), e);
-            sendErrorResponse(resp, "500", "查询审计日志失败");
+            return Result.fail("500", "查询审计日志失败");
         }
     }
-    
+
     /**
-     * 处理获取审计日志详情请求
+     * 获取审计日志详情 - MVC版本
      */
-    private void handleGetAuditLogDetail(HttpServletRequest req, HttpServletResponse resp, Long logId) 
-            throws IOException {
+    @RequestMapping(value = "/{logId}", method = "GET")
+    public Result<Object> getAuditLogDetail(@PathVariable("logId") Long logId, HttpServletRequest request) {
         try {
-            AuditLogVO auditLogVO = auditLogService.getAuditLogDetail(logId);
-            if (auditLogVO != null) {
-                sendSuccessResponse(resp, auditLogVO);
-                logger.info("获取审计日志详情成功: ID={}", logId);
-            } else {
-                sendErrorResponse(resp, "404", "审计日志不存在");
+            // 检查管理员权限
+            Long currentAdminId = getCurrentAdminId(request);
+            if (currentAdminId == null) {
+                return Result.fail("401", "管理员未登录");
             }
+
+            if (!adminService.hasPermission(currentAdminId, "AUDIT_LOG_VIEW")) {
+                return Result.fail("403", "权限不足，无法查看审计日志");
+            }
+
+            if (logId == null || logId <= 0) {
+                return Result.fail("400", "日志ID不能为空");
+            }
+
+            logger.debug("处理获取审计日志详情请求: adminId={}, logId={}", currentAdminId, logId);
+
+            AuditLogVO log = auditLogService.getAuditLogDetail(logId);
+            if (log == null) {
+                return Result.fail("404", "审计日志不存在");
+            }
+
+            return Result.success(log);
         } catch (Exception e) {
             logger.error("获取审计日志详情失败: {}", e.getMessage(), e);
-            sendErrorResponse(resp, "500", "获取审计日志详情失败");
+            return Result.fail("500", "获取审计日志详情失败");
         }
     }
-    
+
     /**
-     * 处理获取可用操作类型请求
+     * 获取审计日志统计信息 - MVC版本（新增功能）
      */
-    private void handleGetAvailableActions(HttpServletRequest req, HttpServletResponse resp) 
-            throws IOException {
+    @RequestMapping(value = "/statistics", method = "GET")
+    public Result<Object> getAuditLogStatistics(@RequestParam(value = "days", defaultValue = "7") Integer days,
+                                               HttpServletRequest request) {
         try {
-            sendSuccessResponse(resp, auditLogService.getAvailableActions());
+            // 检查管理员权限
+            Long currentAdminId = getCurrentAdminId(request);
+            if (currentAdminId == null) {
+                return Result.fail("401", "管理员未登录");
+            }
+
+            if (!adminService.hasPermission(currentAdminId, "AUDIT_LOG_VIEW")) {
+                return Result.fail("403", "权限不足，无法查看审计日志统计");
+            }
+
+            if (days == null || days <= 0 || days > 365) {
+                return Result.fail("400", "天数参数错误，应在1-365之间");
+            }
+
+            logger.debug("处理获取审计日志统计请求: adminId={}, days={}", currentAdminId, days);
+
+            Map<String, Object> statistics = auditLogService.getOperationStats(days);
+            return Result.success(statistics);
         } catch (Exception e) {
-            logger.error("获取可用操作类型失败: {}", e.getMessage(), e);
-            sendErrorResponse(resp, "500", "获取可用操作类型失败");
+            logger.error("获取审计日志统计失败: {}", e.getMessage(), e);
+            return Result.fail("500", "获取审计日志统计失败");
         }
     }
-    
+
     /**
-     * 处理获取可用目标类型请求
+     * 导出审计日志 - MVC版本（新增功能）
      */
-    private void handleGetAvailableTargetTypes(HttpServletRequest req, HttpServletResponse resp) 
-            throws IOException {
+    @RequestMapping(value = "/export", method = "GET")
+    public Result<Object> exportAuditLogs(@RequestParam(value = "format", defaultValue = "csv") String format,
+                                         @RequestParam(value = "startTime", required = false) String startTime,
+                                         @RequestParam(value = "endTime", required = false) String endTime,
+                                         HttpServletRequest request) {
         try {
-            sendSuccessResponse(resp, auditLogService.getAvailableTargetTypes());
-        } catch (Exception e) {
-            logger.error("获取可用目标类型失败: {}", e.getMessage(), e);
-            sendErrorResponse(resp, "500", "获取可用目标类型失败");
-        }
-    }
-    
-    /**
-     * 处理获取统计数据请求
-     */
-    private void handleGetStats(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        try {
-            String daysParam = req.getParameter("days");
-            int days = 7; // 默认7天
-            if (daysParam != null && !daysParam.trim().isEmpty()) {
+            // 检查管理员权限
+            Long currentAdminId = getCurrentAdminId(request);
+            if (currentAdminId == null) {
+                return Result.fail("401", "管理员未登录");
+            }
+
+            if (!adminService.hasPermission(currentAdminId, "AUDIT_LOG_EXPORT")) {
+                return Result.fail("403", "权限不足，无法导出审计日志");
+            }
+
+            if (!"csv".equals(format) && !"excel".equals(format)) {
+                return Result.fail("400", "导出格式错误，支持csv或excel");
+            }
+
+            logger.debug("处理导出审计日志请求: adminId={}, format={}", currentAdminId, format);
+
+            // 构建查询条件
+            AuditLogQueryDTO queryDTO = new AuditLogQueryDTO();
+
+            // 解析时间参数
+            if (startTime != null && !startTime.trim().isEmpty()) {
                 try {
-                    days = Integer.parseInt(daysParam);
-                    if (days <= 0 || days > 365) {
-                        days = 7;
-                    }
-                } catch (NumberFormatException e) {
-                    days = 7;
+                    queryDTO.setStartTime(LocalDateTime.parse(startTime, DATE_TIME_FORMATTER));
+                } catch (DateTimeParseException e) {
+                    return Result.fail("400", "开始时间格式错误，请使用 yyyy-MM-dd HH:mm:ss 格式");
                 }
             }
-            
-            Map<String, Object> stats = auditLogService.getOperationStats(days);
-            sendSuccessResponse(resp, stats);
-        } catch (Exception e) {
-            logger.error("获取统计数据失败: {}", e.getMessage(), e);
-            sendErrorResponse(resp, "500", "获取统计数据失败");
-        }
-    }
-    
-    /**
-     * 处理获取趋势数据请求
-     */
-    private void handleGetTrend(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        try {
-            String daysParam = req.getParameter("days");
-            int days = 7; // 默认7天
-            if (daysParam != null && !daysParam.trim().isEmpty()) {
+
+            if (endTime != null && !endTime.trim().isEmpty()) {
                 try {
-                    days = Integer.parseInt(daysParam);
-                    if (days <= 0 || days > 365) {
-                        days = 7;
-                    }
-                } catch (NumberFormatException e) {
-                    days = 7;
+                    queryDTO.setEndTime(LocalDateTime.parse(endTime, DATE_TIME_FORMATTER));
+                } catch (DateTimeParseException e) {
+                    return Result.fail("400", "结束时间格式错误，请使用 yyyy-MM-dd HH:mm:ss 格式");
                 }
             }
-            
-            sendSuccessResponse(resp, auditLogService.getActivityTrend(days));
-        } catch (Exception e) {
-            logger.error("获取趋势数据失败: {}", e.getMessage(), e);
-            sendErrorResponse(resp, "500", "获取趋势数据失败");
-        }
-    }
-    
-    /**
-     * 处理导出审计日志请求
-     */
-    private void handleExportAuditLogs(HttpServletRequest req, HttpServletResponse resp, Long adminId) 
-            throws IOException {
-        try {
-            AuditLogQueryDTO queryDTO = parseRequestBody(req, AuditLogQueryDTO.class);
-            if (queryDTO == null) {
-                queryDTO = new AuditLogQueryDTO();
-            }
-            
-            // 记录导出操作
-            String ipAddress = getClientIpAddress(req);
-            String userAgent = req.getHeader("User-Agent");
-            auditLogService.logAction(adminId, AuditActionEnum.AUDIT_LOG_EXPORT,
-                                     AuditTargetTypeEnum.AUDIT_LOG, null, "导出审计日志",
-                                     ipAddress, userAgent, true);
-            
-            sendSuccessResponse(resp, auditLogService.exportAuditLogs(queryDTO));
-            logger.info("管理员 {} 导出审计日志成功", adminId);
+
+            List<AuditLogVO> exportData = auditLogService.exportAuditLogs(queryDTO);
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("exportId", "EXPORT_" + System.currentTimeMillis());
+            result.put("format", format);
+            result.put("data", exportData);
+            result.put("count", exportData.size());
+
+            return Result.success(result);
         } catch (Exception e) {
             logger.error("导出审计日志失败: {}", e.getMessage(), e);
-            sendErrorResponse(resp, "500", "导出审计日志失败");
+            return Result.fail("500", "导出审计日志失败");
         }
     }
-    
+
     /**
-     * 构建查询DTO
+     * 获取活动趋势数据 - MVC版本（新增功能）
+     * API: GET /api/admin/audit-logs/activity-trend
      */
-    private AuditLogQueryDTO buildQueryDTO(HttpServletRequest req) {
-        AuditLogQueryDTO queryDTO = new AuditLogQueryDTO();
-        
-        // 管理员ID
-        String adminIdParam = req.getParameter("adminId");
-        if (adminIdParam != null && !adminIdParam.trim().isEmpty()) {
-            try {
-                queryDTO.setAdminId(Long.parseLong(adminIdParam));
-            } catch (NumberFormatException e) {
-                // 忽略无效参数
+    @RequestMapping(value = "/activity-trend", method = "GET")
+    public Result<Object> getActivityTrend(@RequestParam(value = "days", defaultValue = "7") Integer days,
+                                          HttpServletRequest request) {
+        try {
+            // 检查管理员权限
+            Long currentAdminId = getCurrentAdminId(request);
+            if (currentAdminId == null) {
+                return Result.fail("401", "管理员未登录");
             }
-        }
-        
-        // 操作类型
-        String action = req.getParameter("action");
-        if (action != null && !action.trim().isEmpty()) {
-            queryDTO.setAction(action.trim());
-        }
-        
-        // 目标类型
-        String targetType = req.getParameter("targetType");
-        if (targetType != null && !targetType.trim().isEmpty()) {
-            queryDTO.setTargetType(targetType.trim());
-        }
-        
-        // 目标ID
-        String targetIdParam = req.getParameter("targetId");
-        if (targetIdParam != null && !targetIdParam.trim().isEmpty()) {
-            try {
-                queryDTO.setTargetId(Long.parseLong(targetIdParam));
-            } catch (NumberFormatException e) {
-                // 忽略无效参数
+
+            if (!adminService.hasPermission(currentAdminId, "AUDIT_LOG_VIEW")) {
+                return Result.fail("403", "权限不足，无法查看审计日志趋势");
             }
+
+            if (days == null || days <= 0 || days > 365) {
+                return Result.fail("400", "天数参数错误，应在1-365之间");
+            }
+
+            logger.debug("处理获取活动趋势请求: adminId={}, days={}", currentAdminId, days);
+
+            List<Map<String, Object>> trendData = auditLogService.getActivityTrend(days);
+            return Result.success(trendData);
+        } catch (Exception e) {
+            logger.error("获取活动趋势失败: {}", e.getMessage(), e);
+            return Result.fail("500", "获取活动趋势失败");
         }
-        
-        // IP地址
-        String ipAddress = req.getParameter("ipAddress");
-        if (ipAddress != null && !ipAddress.trim().isEmpty()) {
-            queryDTO.setIpAddress(ipAddress.trim());
+    }
+
+    /**
+     * 获取可用操作类型 - MVC版本（新增功能）
+     * API: GET /api/admin/audit-logs/available-actions
+     */
+    @RequestMapping(value = "/available-actions", method = "GET")
+    public Result<Object> getAvailableActions(HttpServletRequest request) {
+        try {
+            // 检查管理员权限
+            Long currentAdminId = getCurrentAdminId(request);
+            if (currentAdminId == null) {
+                return Result.fail("401", "管理员未登录");
+            }
+
+            if (!adminService.hasPermission(currentAdminId, "AUDIT_LOG_VIEW")) {
+                return Result.fail("403", "权限不足，无法查看操作类型");
+            }
+
+            logger.debug("处理获取可用操作类型请求: adminId={}", currentAdminId);
+
+            List<Map<String, String>> actions = auditLogService.getAvailableActions();
+            return Result.success(actions);
+        } catch (Exception e) {
+            logger.error("获取可用操作类型失败: {}", e.getMessage(), e);
+            return Result.fail("500", "获取可用操作类型失败");
         }
-        
-        // 操作结果
-        String resultParam = req.getParameter("result");
-        if (resultParam != null && !resultParam.trim().isEmpty()) {
-            try {
-                int result = Integer.parseInt(resultParam);
-                if (result == 0 || result == 1) {
-                    queryDTO.setResult(result);
+    }
+
+    /**
+     * 获取可用目标类型 - MVC版本（新增功能）
+     * API: GET /api/admin/audit-logs/available-target-types
+     */
+    @RequestMapping(value = "/available-target-types", method = "GET")
+    public Result<Object> getAvailableTargetTypes(HttpServletRequest request) {
+        try {
+            // 检查管理员权限
+            Long currentAdminId = getCurrentAdminId(request);
+            if (currentAdminId == null) {
+                return Result.fail("401", "管理员未登录");
+            }
+
+            if (!adminService.hasPermission(currentAdminId, "AUDIT_LOG_VIEW")) {
+                return Result.fail("403", "权限不足，无法查看目标类型");
+            }
+
+            logger.debug("处理获取可用目标类型请求: adminId={}", currentAdminId);
+
+            List<Map<String, String>> targetTypes = auditLogService.getAvailableTargetTypes();
+            return Result.success(targetTypes);
+        } catch (Exception e) {
+            logger.error("获取可用目标类型失败: {}", e.getMessage(), e);
+            return Result.fail("500", "获取可用目标类型失败");
+        }
+    }
+
+    // ==================== 工具方法 ====================
+
+    /**
+     * 获取当前管理员ID
+     */
+    protected Long getCurrentAdminId(HttpServletRequest request) {
+        try {
+            String token = request.getHeader("Authorization");
+            if (token != null && token.startsWith("Bearer ")) {
+                token = token.substring(7);
+                if (JwtUtil.validateToken(token)) {
+                    return JwtUtil.getUserIdFromToken(token);
                 }
-            } catch (NumberFormatException e) {
-                // 忽略无效参数
             }
+        } catch (Exception e) {
+            logger.warn("获取管理员ID失败: {}", e.getMessage());
         }
-        
-        // 时间范围
-        String startTimeParam = req.getParameter("startTime");
-        if (startTimeParam != null && !startTimeParam.trim().isEmpty()) {
-            try {
-                queryDTO.setStartTime(LocalDateTime.parse(startTimeParam, DATE_TIME_FORMATTER));
-            } catch (DateTimeParseException e) {
-                // 忽略无效参数
-            }
-        }
-        
-        String endTimeParam = req.getParameter("endTime");
-        if (endTimeParam != null && !endTimeParam.trim().isEmpty()) {
-            try {
-                queryDTO.setEndTime(LocalDateTime.parse(endTimeParam, DATE_TIME_FORMATTER));
-            } catch (DateTimeParseException e) {
-                // 忽略无效参数
-            }
-        }
-        
-        // 关键词
-        String keyword = req.getParameter("keyword");
-        if (keyword != null && !keyword.trim().isEmpty()) {
-            queryDTO.setKeyword(keyword.trim());
-        }
-        
-        // 分页参数
-        String pageParam = req.getParameter("page");
-        if (pageParam != null && !pageParam.trim().isEmpty()) {
-            try {
-                queryDTO.setPage(Integer.parseInt(pageParam));
-            } catch (NumberFormatException e) {
-                // 使用默认值
-            }
-        }
-        
-        String pageSizeParam = req.getParameter("pageSize");
-        if (pageSizeParam != null && !pageSizeParam.trim().isEmpty()) {
-            try {
-                queryDTO.setPageSize(Integer.parseInt(pageSizeParam));
-            } catch (NumberFormatException e) {
-                // 使用默认值
-            }
-        }
-        
-        // 排序参数
-        String sortBy = req.getParameter("sortBy");
-        if (sortBy != null && !sortBy.trim().isEmpty()) {
-            queryDTO.setSortBy(sortBy.trim());
-        }
-        
-        String sortOrder = req.getParameter("sortOrder");
-        if (sortOrder != null && !sortOrder.trim().isEmpty()) {
-            queryDTO.setSortOrder(sortOrder.trim());
-        }
-        
-        return queryDTO;
-    }
-
-    /**
-     * 验证管理员权限
-     */
-    private Long validateAdminPermission(HttpServletRequest req, HttpServletResponse resp, String requiredRole)
-            throws IOException {
-        String token = req.getHeader("Authorization");
-        if (token != null && token.startsWith("Bearer ")) {
-            token = token.substring(7);
-        }
-
-        if (!JwtUtil.validateToken(token)) {
-            sendErrorResponse(resp, "401", "未授权访问");
-            return null;
-        }
-
-        Long adminId = JwtUtil.getUserIdFromToken(token);
-        if (adminId == null) {
-            sendErrorResponse(resp, "401", "无效的令牌");
-            return null;
-        }
-
-        if (!adminService.hasPermission(adminId, requiredRole)) {
-            sendErrorResponse(resp, "403", "权限不足");
-            return null;
-        }
-
-        return adminId;
-    }
-
-    /**
-     * 获取客户端IP地址
-     */
-    private String getClientIpAddress(HttpServletRequest request) {
-        String xForwardedFor = request.getHeader("X-Forwarded-For");
-        if (xForwardedFor != null && !xForwardedFor.isEmpty() && !"unknown".equalsIgnoreCase(xForwardedFor)) {
-            return xForwardedFor.split(",")[0].trim();
-        }
-
-        String xRealIp = request.getHeader("X-Real-IP");
-        if (xRealIp != null && !xRealIp.isEmpty() && !"unknown".equalsIgnoreCase(xRealIp)) {
-            return xRealIp;
-        }
-
-        return request.getRemoteAddr();
-    }
-
-    /**
-     * 解析请求体
-     */
-    private <T> T parseRequestBody(HttpServletRequest req, Class<T> clazz) throws IOException {
-        return objectMapper.readValue(req.getInputStream(), clazz);
-    }
-
-    /**
-     * 发送成功响应
-     */
-    private void sendSuccessResponse(HttpServletResponse resp, Object data) throws IOException {
-        sendSuccessResponse(resp, data, "操作成功");
-    }
-
-    /**
-     * 发送成功响应
-     */
-    private void sendSuccessResponse(HttpServletResponse resp, Object data, String message) throws IOException {
-        resp.setContentType("application/json;charset=UTF-8");
-        Map<String, Object> result = new HashMap<>();
-        result.put("success", true);
-        result.put("message", message);
-        result.put("data", data);
-        resp.getWriter().write(objectMapper.writeValueAsString(result));
-    }
-
-    /**
-     * 发送错误响应
-     */
-    private void sendErrorResponse(HttpServletResponse resp, String code, String message) throws IOException {
-        resp.setContentType("application/json;charset=UTF-8");
-        Map<String, Object> result = new HashMap<>();
-        result.put("success", false);
-        result.put("code", code);
-        result.put("message", message);
-        resp.getWriter().write(objectMapper.writeValueAsString(result));
+        return null;
     }
 }

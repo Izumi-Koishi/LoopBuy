@@ -3,6 +3,9 @@ package com.shiwu.order.service.impl;
 import com.shiwu.cart.dao.CartDao;
 import com.shiwu.common.result.Result;
 import com.shiwu.common.util.JsonUtil;
+import com.shiwu.framework.annotation.Autowired;
+import com.shiwu.framework.annotation.Service;
+import com.shiwu.framework.service.BaseService;
 import com.shiwu.notification.model.Notification;
 import com.shiwu.notification.service.NotificationService;
 import com.shiwu.notification.service.impl.NotificationServiceImpl;
@@ -13,8 +16,6 @@ import com.shiwu.order.service.RefundService;
 import com.shiwu.product.dao.ProductDao;
 import com.shiwu.product.model.Product;
 import com.shiwu.review.dao.ReviewDao;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -24,27 +25,54 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 订单服务实现类
+ * 订单服务实现类 - MVC框架版本
  *
  * Task4_3_1_2: 在订单状态变更时创建通知
  */
-public class OrderServiceImpl implements OrderService {
-    private static final Logger logger = LoggerFactory.getLogger(OrderServiceImpl.class);
+@Service
+public class OrderServiceImpl extends BaseService implements OrderService {
 
-    private final OrderDao orderDao;
-    private final ProductDao productDao;
-    private final CartDao cartDao;
-    private final ReviewDao reviewDao;
-    private final RefundService refundService;
-    private final NotificationService notificationService;
+    @Autowired
+    private OrderDao orderDao;
 
+    @Autowired
+    private ProductDao productDao;
+
+    @Autowired
+    private CartDao cartDao;
+
+    @Autowired
+    private ReviewDao reviewDao;
+
+    @Autowired
+    private RefundService refundService;
+
+    @Autowired
+    private NotificationService notificationService;
+
+    // 无参构造函数，用于MVC框架依赖注入
     public OrderServiceImpl() {
+        // 为了兼容测试，在无参构造函数中初始化DAO
         this.orderDao = new OrderDao();
         this.productDao = new ProductDao();
         this.cartDao = new CartDao();
         this.reviewDao = new ReviewDao();
         this.refundService = new com.shiwu.order.service.impl.RefundServiceImpl();
         this.notificationService = new NotificationServiceImpl();
+        logger.info("OrderServiceImpl初始化完成 - 使用MVC框架依赖注入");
+    }
+
+    // 兼容性构造函数，支持渐进式迁移
+    public OrderServiceImpl(OrderDao orderDao, ProductDao productDao, CartDao cartDao,
+                           ReviewDao reviewDao, RefundService refundService,
+                           NotificationService notificationService) {
+        this.orderDao = orderDao;
+        this.productDao = productDao;
+        this.cartDao = cartDao;
+        this.reviewDao = reviewDao;
+        this.refundService = refundService;
+        this.notificationService = notificationService;
+        logger.info("OrderServiceImpl初始化完成 - 使用兼容性构造函数");
     }
     
     @Override

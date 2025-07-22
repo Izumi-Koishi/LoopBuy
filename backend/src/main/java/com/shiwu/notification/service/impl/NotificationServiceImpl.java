@@ -1,6 +1,9 @@
 package com.shiwu.notification.service.impl;
 
 import com.shiwu.common.result.Result;
+import com.shiwu.framework.annotation.Autowired;
+import com.shiwu.framework.annotation.Service;
+import com.shiwu.framework.service.BaseService;
 import com.shiwu.notification.dao.NotificationDao;
 import com.shiwu.notification.model.Notification;
 import com.shiwu.notification.service.NotificationService;
@@ -8,37 +11,41 @@ import com.shiwu.notification.vo.NotificationVO;
 import com.shiwu.user.dao.UserFollowDao;
 import com.shiwu.user.dao.UserDao;
 import com.shiwu.user.model.User;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 //import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 通知服务实现类
- * 
+ * 通知服务实现类 - MVC框架版本
+ *
  * 用于Task4_2_1_2: 商品审核通过粉丝通知功能
  * 实现通知的创建、查询、管理等功能
- * 
+ *
+ * 使用MVC框架的@Service注解和@Autowired依赖注入
+ * 继承BaseService获得通用功能支持
+ *
  * @author LoopBuy Team
- * @version 1.0
+ * @version 2.0 (MVC Framework)
  * @since 2024-01-15
  */
-public class NotificationServiceImpl implements NotificationService {
-    
-    private static final Logger logger = LoggerFactory.getLogger(NotificationServiceImpl.class);
-    
-    private final NotificationDao notificationDao;
-    private final UserFollowDao userFollowDao;
-    private final UserDao userDao;
-    
+@Service
+public class NotificationServiceImpl extends BaseService implements NotificationService {
+
+    @Autowired
+    private NotificationDao notificationDao;
+
+    @Autowired
+    private UserFollowDao userFollowDao;
+
+    @Autowired
+    private UserDao userDao;
+
+    // 默认构造函数 - 用于兼容性
     public NotificationServiceImpl() {
-        this.notificationDao = new NotificationDao();
-        this.userFollowDao = new UserFollowDao();
-        this.userDao = new UserDao();
+        // MVC框架会自动注入依赖
     }
-    
+
     // 用于测试的构造函数
     public NotificationServiceImpl(NotificationDao notificationDao, UserFollowDao userFollowDao, UserDao userDao) {
         this.notificationDao = notificationDao;

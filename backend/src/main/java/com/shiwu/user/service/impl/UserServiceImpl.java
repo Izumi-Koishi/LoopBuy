@@ -3,10 +3,12 @@ package com.shiwu.user.service.impl;
 import com.shiwu.common.result.Result;
 import com.shiwu.common.util.JwtUtil;
 import com.shiwu.common.util.PasswordUtil;
+import com.shiwu.framework.annotation.Autowired;
+import com.shiwu.framework.annotation.Service;
+import com.shiwu.framework.service.BaseService;
 import com.shiwu.user.dao.FeedDao;
 import com.shiwu.product.model.ProductCardVO;
 import com.shiwu.product.service.ProductService;
-import com.shiwu.product.service.impl.ProductServiceImpl;
 import com.shiwu.user.dao.UserDao;
 import com.shiwu.user.dao.UserFollowDao;
 import com.shiwu.user.model.*;
@@ -14,38 +16,61 @@ import com.shiwu.user.service.UserService;
 import com.shiwu.user.vo.FeedItemVO;
 import com.shiwu.user.vo.FeedResponseVO;
 import com.shiwu.user.vo.PaginationVO;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
 
 import java.math.BigDecimal;
 import java.util.List;
 
 /**
- * 用户服务实现类
+ * 用户服务实现类 - MVC框架版本
+ *
+ * 使用MVC框架的依赖注入，简化依赖管理
+ * 支持用户登录、注册、个人信息管理、关注功能等
+ *
+ * @author LoopBuy Team
+ * @version 2.0 (MVC Framework)
  */
-public class UserServiceImpl implements UserService {
-    private static final Logger logger = LoggerFactory.getLogger(UserServiceImpl.class);
+@Service
+public class UserServiceImpl extends BaseService implements UserService {
     private static final Integer USER_STATUS_NORMAL = 0;
     private static final Integer USER_STATUS_BANNED = 1;
     private static final Integer USER_STATUS_MUTED = 2;
 
-    private final UserDao userDao;
-    private final UserFollowDao userFollowDao;
-    private final FeedDao feedDao;
-    private final ProductService productService;
+    @Autowired
+    private UserDao userDao;
+
+    @Autowired
+    private UserFollowDao userFollowDao;
+
+    @Autowired
+    private FeedDao feedDao;
+
+    @Autowired
+    private ProductService productService;
 
     public UserServiceImpl() {
-        this.userDao = new UserDao();
-        this.userFollowDao = new UserFollowDao();
-        this.feedDao = new FeedDao();
-        this.productService = new ProductServiceImpl();
+        logger.info("UserServiceImpl初始化完成 - 使用MVC框架依赖注入");
+    }
+
+    // 兼容性构造函数，支持渐进式迁移
+    public UserServiceImpl(UserDao userDao, UserFollowDao userFollowDao, FeedDao feedDao, ProductService productService) {
+        this.userDao = userDao;
+        this.userFollowDao = userFollowDao;
+        this.feedDao = feedDao;
+        this.productService = productService;
+        logger.info("UserServiceImpl初始化完成 - 使用兼容性构造函数");
     }
 
     @Override
     public LoginResult login(String username, String password) {
-        // 参数校验
-        if (username == null || password == null || username.trim().isEmpty() || password.trim().isEmpty()) {
-            logger.warn("登录失败: 用户名或密码为空");
+        logMethodStart("login", username, "***");
+
+        try {
+            // 参数校验
+            validateNotBlank(username, "username");
+            validateNotBlank(password, "password");
+        } catch (IllegalArgumentException e) {
+            logBusinessWarning("登录失败: {}", e.getMessage());
             return LoginResult.fail(LoginErrorEnum.PARAMETER_ERROR);
         }
 
@@ -55,13 +80,13 @@ public class UserServiceImpl implements UserService {
             
             // 用户不存在
             if (user == null) {
-                logger.warn("登录失败: 用户 {} 不存在", username);
+                logBusinessWarning("登录失败: 用户 {} 不存在", username);
                 return LoginResult.fail(LoginErrorEnum.USER_NOT_FOUND);
             }
-            
+
             // 检查账户状态
             if (USER_STATUS_BANNED.equals(user.getStatus())) {
-                logger.warn("登录失败: 用户 {} 账户已被封禁", username);
+                logBusinessWarning("登录失败: 用户 {} 账户已被封禁", username);
                 return LoginResult.fail(LoginErrorEnum.ACCOUNT_BANNED);
             }
             
@@ -95,7 +120,7 @@ public class UserServiceImpl implements UserService {
             
             // 密码不正确
             if (!passwordMatches) {
-                logger.warn("登录失败: 用户 {} 密码错误", username);
+                logBusinessWarning("登录失败: 用户 {} 密码错误", username);
                 return LoginResult.fail(LoginErrorEnum.WRONG_PASSWORD);
             }
             
@@ -113,21 +138,26 @@ public class UserServiceImpl implements UserService {
             }
             
             userVO.setToken(token);
-            logger.info("用户 {} 登录成功并生成JWT令牌", username);
+            logBusinessInfo("用户 {} 登录成功并生成JWT令牌", username);
+            logMethodSuccess("login", userVO);
             return LoginResult.success(userVO);
         } catch (Exception e) {
-            logger.error("登录过程发生异常: {}", e.getMessage(), e);
+            logMethodError("login", e, username, "***");
             return LoginResult.fail(LoginErrorEnum.SYSTEM_ERROR);
         }
     }
     
     @Override
     public RegisterResult register(RegisterRequest registerRequest) {
-        // 参数校验
-        if (registerRequest == null ||
-            registerRequest.getUsername() == null || registerRequest.getUsername().trim().isEmpty() ||
-            registerRequest.getPassword() == null || registerRequest.getPassword().trim().isEmpty()) {
-            logger.warn("注册失败: 必填参数为空");
+        logMethodStart("register", registerRequest != null ? registerRequest.getUsername() : null);
+
+        try {
+            // 参数校验
+            validateNotNull(registerRequest, "registerRequest");
+            validateNotBlank(registerRequest.getUsername(), "username");
+            validateNotBlank(registerRequest.getPassword(), "password");
+        } catch (IllegalArgumentException e) {
+            logBusinessWarning("注册失败: {}", e.getMessage());
             return RegisterResult.fail(RegisterErrorEnum.PARAMETER_ERROR);
         }
         

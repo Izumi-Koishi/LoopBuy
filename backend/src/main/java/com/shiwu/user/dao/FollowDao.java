@@ -1,6 +1,7 @@
 package com.shiwu.user.dao;
 
 import com.shiwu.common.util.DBUtil;
+import com.shiwu.framework.annotation.Repository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,8 +13,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 用户关注关系数据访问对象
+ * 用户关注关系数据访问对象 - MVC框架版本
  */
+@Repository
 public class FollowDao {
     private static final Logger logger = LoggerFactory.getLogger(FollowDao.class);
 

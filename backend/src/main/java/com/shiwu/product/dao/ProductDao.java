@@ -1,6 +1,7 @@
 package com.shiwu.product.dao;
 
 import com.shiwu.common.util.DBUtil;
+import com.shiwu.framework.annotation.Repository;
 import com.shiwu.product.model.Product;
 import com.shiwu.product.model.ProductCardVO;
 import com.shiwu.product.model.ProductDetailVO;
@@ -17,8 +18,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 商品数据访问对象
+ * 商品数据访问对象 - MVC框架版本
  */
+@Repository
 public class ProductDao {
     private static final Logger logger = LoggerFactory.getLogger(ProductDao.class);
     private static final Integer PRODUCT_STATUS_ONSALE = 1; // 在售状态

@@ -1,266 +1,257 @@
 package com.shiwu.cart.controller;
 
 import com.shiwu.cart.model.CartAddDTO;
-import com.shiwu.cart.model.CartErrorCode;
-import com.shiwu.cart.model.CartOperationResult;
 import com.shiwu.cart.service.CartService;
 import com.shiwu.cart.service.impl.CartServiceImpl;
 import com.shiwu.common.result.Result;
 import com.shiwu.common.util.JsonUtil;
+import com.shiwu.common.util.JwtUtil;
+import com.shiwu.framework.annotation.Autowired;
+import com.shiwu.framework.annotation.Controller;
+import com.shiwu.framework.annotation.PathVariable;
+import com.shiwu.framework.annotation.RequestMapping;
+import com.shiwu.framework.web.BaseController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
-import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.PrintWriter;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * 购物车控制器
+ * 购物车控制器 - 精简版MVC框架
+ *
+ * 只包含MVC注解方法，移除传统Servlet代码
+ * 大幅简化代码结构，提高可维护性
  */
-@WebServlet("/api/cart/*")
-public class CartController extends HttpServlet {
+@Controller
+@WebServlet("/api/v2/cart/*")
+public class CartController extends BaseController {
     private static final Logger logger = LoggerFactory.getLogger(CartController.class);
-    private final CartService cartService;
+
+    @Autowired
+    private CartService cartService;
 
     public CartController() {
+        // 为了兼容测试，在无参构造函数中初始化Service
         this.cartService = new CartServiceImpl();
+        logger.info("CartController初始化完成 - 精简版MVC框架");
     }
 
-    @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        String pathInfo = req.getPathInfo();
-
-        if (pathInfo == null || pathInfo.equals("/") || pathInfo.equals("/list")) {
-            handleGetCart(req, resp);
-        } else {
-            sendErrorResponse(resp, "404", "请求路径不存在");
-        }
+    // 兼容性构造函数，支持渐进式迁移
+    public CartController(CartService cartService) {
+        this.cartService = cartService;
+        logger.info("CartController初始化完成 - 使用兼容性构造函数");
     }
 
-    @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        String pathInfo = req.getPathInfo();
-
-        if (pathInfo == null) {
-            sendErrorResponse(resp, "404", "请求路径不存在");
-            return;
-        }
-
-        switch (pathInfo) {
-            case "/add":
-                handleAddToCart(req, resp);
-                break;
-            case "/batch-remove":
-                handleBatchRemoveFromCart(req, resp);
-                break;
-            case "/clear":
-                handleClearCart(req, resp);
-                break;
-            default:
-                sendErrorResponse(resp, "404", "请求路径不存在");
-                break;
-        }
-    }
-
-    @Override
-    protected void doDelete(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        String pathInfo = req.getPathInfo();
-
-        if (pathInfo == null) {
-            sendErrorResponse(resp, "404", "请求路径不存在");
-            return;
-        }
-
-        // 处理 /api/cart/remove/{productId} 格式的请求
-        if (pathInfo.matches("^/remove/\\d+$")) {
-            handleRemoveFromCart(req, resp);
-        } else {
-            sendErrorResponse(resp, "404", "请求路径不存在");
-        }
-    }
+    // ==================== MVC框架注解方法 ====================
 
     /**
-     * 获取购物车
+     * 获取购物车 - MVC版本
      */
-    private void handleGetCart(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        // 检查用户是否登录
-        Long userId = getCurrentUserId(req);
-        if (userId == null) {
-            sendErrorResponse(resp, "401", "用户未登录");
-            return;
-        }
-
+    @RequestMapping(value = "/", method = "GET")
+    public Result<Object> getCart(HttpServletRequest request) {
         try {
-            CartOperationResult result = cartService.getCart(userId);
+            Long userId = getCurrentUserId(request);
+            if (userId == null) {
+                return Result.fail("401", "用户未登录");
+            }
+
+            logger.debug("处理获取购物车请求: userId={}", userId);
+            com.shiwu.cart.model.CartOperationResult result = cartService.getCart(userId);
+
             if (result.isSuccess()) {
-                sendSuccessResponse(resp, result.getData());
+                return Result.success(result.getData());
             } else {
-                sendErrorResponse(resp, result.getErrorCode(), result.getErrorMessage());
+                return Result.fail(result.getErrorCode(), result.getErrorMessage());
             }
         } catch (Exception e) {
-            logger.error("获取购物车失败", e);
-            sendErrorResponse(resp, CartErrorCode.SYSTEM_ERROR, CartErrorCode.MSG_SYSTEM_ERROR);
+            logger.error("获取购物车失败: {}", e.getMessage(), e);
+            return Result.fail("500", "系统错误，请稍后再试");
         }
     }
 
     /**
-     * 添加商品到购物车
+     * 添加商品到购物车 - MVC版本
      */
-    private void handleAddToCart(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        // 检查用户是否登录
-        Long userId = getCurrentUserId(req);
-        if (userId == null) {
-            sendErrorResponse(resp, "401", "用户未登录");
-            return;
-        }
-
+    @RequestMapping(value = "/add", method = "POST")
+    public Result<Object> addToCart(HttpServletRequest request) {
         try {
-            // 读取请求体
-            String requestBody = readRequestBody(req);
+            Long userId = getCurrentUserId(request);
+            if (userId == null) {
+                return Result.fail("401", "用户未登录");
+            }
+
+            String requestBody = getRequestBody(request);
+            if (requestBody == null || requestBody.trim().isEmpty()) {
+                return Result.fail("400", "请求体不能为空");
+            }
+
             CartAddDTO dto = JsonUtil.fromJson(requestBody, CartAddDTO.class);
-
-            if (dto == null || dto.getProductId() == null) {
-                sendErrorResponse(resp, "400", "请求参数不能为空");
-                return;
+            if (dto == null) {
+                return Result.fail("400", "请求参数格式错误");
             }
 
-            // 如果数量为空，默认设置为1
-            if (dto.getQuantity() == null) {
-                dto.setQuantity(1);
-            }
+            logger.debug("处理添加商品到购物车请求: userId={}, productId={}, quantity={}",
+                        userId, dto.getProductId(), dto.getQuantity());
 
-            CartOperationResult result = cartService.addToCart(dto, userId);
+            com.shiwu.cart.model.CartOperationResult result = cartService.addToCart(dto, userId);
+
             if (result.isSuccess()) {
-                sendSuccessResponse(resp, result.getData());
+                return Result.success(result.getData());
             } else {
-                sendErrorResponse(resp, result.getErrorCode(), result.getErrorMessage());
+                return Result.fail(result.getErrorCode(), result.getErrorMessage());
             }
         } catch (Exception e) {
-            logger.error("添加商品到购物车失败", e);
-            sendErrorResponse(resp, "500", "系统错误");
+            logger.error("添加商品到购物车失败: {}", e.getMessage(), e);
+            return Result.fail("500", "系统错误，请稍后再试");
         }
     }
 
     /**
-     * 从购物车中移除商品
+     * 从购物车移除商品 - MVC版本
      */
-    private void handleRemoveFromCart(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        // 检查用户是否登录
-        Long userId = getCurrentUserId(req);
-        if (userId == null) {
-            sendErrorResponse(resp, "401", "用户未登录");
-            return;
-        }
-
+    @RequestMapping(value = "/remove/{productId}", method = "DELETE")
+    public Result<Object> removeFromCart(@PathVariable("productId") Long productId, HttpServletRequest request) {
         try {
-            // 从路径中提取商品ID
-            String pathInfo = req.getPathInfo();
-            String productIdStr = pathInfo.substring(pathInfo.lastIndexOf('/') + 1);
-            Long productId = Long.parseLong(productIdStr);
-
-            CartOperationResult result = cartService.removeFromCart(productId, userId);
-            if (result.isSuccess()) {
-                sendSuccessResponse(resp, result.getData());
-            } else {
-                sendErrorResponse(resp, result.getErrorCode(), result.getErrorMessage());
+            Long userId = getCurrentUserId(request);
+            if (userId == null) {
+                return Result.fail("401", "用户未登录");
             }
-        } catch (NumberFormatException e) {
-            sendErrorResponse(resp, "400", "商品ID格式错误");
+
+            if (productId == null || productId <= 0) {
+                return Result.fail("400", "商品ID无效");
+            }
+
+            logger.debug("处理从购物车移除商品请求: userId={}, productId={}", userId, productId);
+
+            com.shiwu.cart.model.CartOperationResult result = cartService.removeFromCart(productId, userId);
+
+            if (result.isSuccess()) {
+                return Result.success(result.getData());
+            } else {
+                return Result.fail(result.getErrorCode(), result.getErrorMessage());
+            }
         } catch (Exception e) {
-            logger.error("从购物车移除商品失败", e);
-            sendErrorResponse(resp, "500", "系统错误");
+            logger.error("从购物车移除商品失败: {}", e.getMessage(), e);
+            return Result.fail("500", "系统错误，请稍后再试");
         }
     }
 
     /**
-     * 批量从购物车中移除商品
+     * 批量从购物车移除商品 - MVC版本
      */
-    private void handleBatchRemoveFromCart(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        // 检查用户是否登录
-        Long userId = getCurrentUserId(req);
-        if (userId == null) {
-            sendErrorResponse(resp, "401", "用户未登录");
-            return;
-        }
-
+    @RequestMapping(value = "/batch-remove", method = "POST")
+    public Result<Object> batchRemoveFromCart(HttpServletRequest request) {
         try {
-            // 读取请求体
-            String requestBody = readRequestBody(req);
+            Long userId = getCurrentUserId(request);
+            if (userId == null) {
+                return Result.fail("401", "用户未登录");
+            }
+
+            String requestBody = getRequestBody(request);
+            if (requestBody == null || requestBody.trim().isEmpty()) {
+                return Result.fail("400", "请求体不能为空");
+            }
+
             @SuppressWarnings("unchecked")
             Map<String, Object> requestMap = JsonUtil.fromJson(requestBody, Map.class);
-
             if (requestMap == null || !requestMap.containsKey("productIds")) {
-                sendErrorResponse(resp, "400", "请求参数不能为空");
-                return;
+                return Result.fail("400", "请求参数格式错误");
             }
 
             @SuppressWarnings("unchecked")
-            List<Object> productIdObjects = (List<Object>) requestMap.get("productIds");
-            List<Long> productIds = productIdObjects.stream()
-                    .map(obj -> {
-                        if (obj instanceof Number) {
-                            return ((Number) obj).longValue();
-                        } else {
-                            return Long.parseLong(obj.toString());
-                        }
-                    })
+            List<Integer> productIdInts = (List<Integer>) requestMap.get("productIds");
+            List<Long> productIds = productIdInts.stream()
+                    .map(Integer::longValue)
                     .collect(Collectors.toList());
 
-            CartOperationResult result = cartService.batchRemoveFromCart(productIds, userId);
+            logger.debug("处理批量从购物车移除商品请求: userId={}, productIds={}", userId, productIds);
+
+            com.shiwu.cart.model.CartOperationResult result = cartService.batchRemoveFromCart(productIds, userId);
+
             if (result.isSuccess()) {
-                sendSuccessResponse(resp, result.getData());
+                return Result.success(result.getData());
             } else {
-                sendErrorResponse(resp, result.getErrorCode(), result.getErrorMessage());
+                return Result.fail(result.getErrorCode(), result.getErrorMessage());
             }
         } catch (Exception e) {
-            logger.error("批量从购物车移除商品失败", e);
-            sendErrorResponse(resp, "500", "系统错误");
+            logger.error("批量从购物车移除商品失败: {}", e.getMessage(), e);
+            return Result.fail("500", "系统错误，请稍后再试");
         }
     }
 
     /**
-     * 清空购物车
+     * 清空购物车 - MVC版本
      */
-    private void handleClearCart(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        // 检查用户是否登录
-        Long userId = getCurrentUserId(req);
-        if (userId == null) {
-            sendErrorResponse(resp, "401", "用户未登录");
-            return;
-        }
-
+    @RequestMapping(value = "/clear", method = "POST")
+    public Result<Object> clearCart(HttpServletRequest request) {
         try {
-            CartOperationResult result = cartService.clearCart(userId);
+            Long userId = getCurrentUserId(request);
+            if (userId == null) {
+                return Result.fail("401", "用户未登录");
+            }
+
+            logger.debug("处理清空购物车请求: userId={}", userId);
+
+            com.shiwu.cart.model.CartOperationResult result = cartService.clearCart(userId);
+
             if (result.isSuccess()) {
-                sendSuccessResponse(resp, result.getData());
+                return Result.success(result.getData());
             } else {
-                sendErrorResponse(resp, result.getErrorCode(), result.getErrorMessage());
+                return Result.fail(result.getErrorCode(), result.getErrorMessage());
             }
         } catch (Exception e) {
-            logger.error("清空购物车失败", e);
-            sendErrorResponse(resp, "500", "系统错误");
+            logger.error("清空购物车失败: {}", e.getMessage(), e);
+            return Result.fail("500", "系统错误，请稍后再试");
         }
     }
 
     /**
-     * 获取当前登录用户ID
+     * 获取购物车商品总数 - MVC版本
      */
-    private Long getCurrentUserId(HttpServletRequest req) {
-        HttpSession session = req.getSession(false);
-        if (session != null) {
-            Object userIdObj = session.getAttribute("userId");
-            if (userIdObj instanceof Long) {
-                return (Long) userIdObj;
+    @RequestMapping(value = "/count", method = "GET")
+    public Result<Object> getCartItemCount(HttpServletRequest request) {
+        try {
+            Long userId = getCurrentUserId(request);
+            if (userId == null) {
+                return Result.fail("401", "用户未登录");
             }
+
+            logger.debug("处理获取购物车商品总数请求: userId={}", userId);
+
+            int count = cartService.getCartItemCount(userId);
+            Map<String, Object> data = new HashMap<>();
+            data.put("totalItems", count);
+
+            return Result.success(data);
+        } catch (Exception e) {
+            logger.error("获取购物车商品总数失败: {}", e.getMessage(), e);
+            return Result.fail("500", "系统错误，请稍后再试");
+        }
+    }
+
+    // ==================== 工具方法 ====================
+
+    /**
+     * 获取当前用户ID
+     */
+    protected Long getCurrentUserId(HttpServletRequest request) {
+        try {
+            String token = request.getHeader("Authorization");
+            if (token != null && token.startsWith("Bearer ")) {
+                token = token.substring(7);
+                if (JwtUtil.validateToken(token)) {
+                    return JwtUtil.getUserIdFromToken(token);
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("获取用户ID失败: {}", e.getMessage());
         }
         return null;
     }
@@ -268,55 +259,18 @@ public class CartController extends HttpServlet {
     /**
      * 读取请求体
      */
-    private String readRequestBody(HttpServletRequest req) throws IOException {
-        StringBuilder sb = new StringBuilder();
-        try (BufferedReader reader = req.getReader()) {
+    protected String getRequestBody(HttpServletRequest request) {
+        try {
+            StringBuilder sb = new StringBuilder();
+            BufferedReader reader = request.getReader();
             String line;
             while ((line = reader.readLine()) != null) {
                 sb.append(line);
             }
-        }
-        return sb.toString();
-    }
-
-    /**
-     * 发送成功响应
-     */
-    private void sendSuccessResponse(HttpServletResponse resp, Object data) throws IOException {
-        resp.setContentType("application/json;charset=UTF-8");
-        resp.setStatus(HttpServletResponse.SC_OK);
-        
-        Result<Object> result = Result.success(data);
-        String jsonResponse = JsonUtil.toJson(result);
-        
-        try (PrintWriter writer = resp.getWriter()) {
-            writer.write(jsonResponse);
-        }
-    }
-
-    /**
-     * 发送错误响应
-     */
-    private void sendErrorResponse(HttpServletResponse resp, String code, String message) throws IOException {
-        resp.setContentType("application/json;charset=UTF-8");
-
-        // 根据错误码设置HTTP状态码
-        if ("401".equals(code)) {
-            resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-        } else if ("404".equals(code)) {
-            resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
-        } else if ("400".equals(code) || code.startsWith("CART_")) {
-            // 购物车相关错误都返回400 Bad Request
-            resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-        } else {
-            resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-        }
-
-        Result<Object> result = Result.fail(code, message);
-        String jsonResponse = JsonUtil.toJson(result);
-
-        try (PrintWriter writer = resp.getWriter()) {
-            writer.write(jsonResponse);
+            return sb.toString();
+        } catch (IOException e) {
+            logger.error("读取请求体失败: {}", e.getMessage());
+            return null;
         }
     }
 }

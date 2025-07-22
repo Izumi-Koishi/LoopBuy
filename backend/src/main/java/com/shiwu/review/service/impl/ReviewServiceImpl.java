@@ -1,49 +1,57 @@
 package com.shiwu.review.service.impl;
 
+import com.shiwu.framework.annotation.Autowired;
+import com.shiwu.framework.annotation.Service;
+import com.shiwu.framework.service.BaseService;
 import com.shiwu.order.dao.OrderDao;
 import com.shiwu.order.model.Order;
 import com.shiwu.review.dao.ReviewDao;
 import com.shiwu.review.model.*;
 import com.shiwu.review.service.ReviewService;
 import com.shiwu.user.service.UserService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
 import java.util.List;
 
 /**
- * 评价服务实现类
- * 
+ * 评价服务实现类 - MVC框架版本
+ *
  * 严格遵循项目规范：
  * 1. 模块解耦：通过Service接口调用其他模块
  * 2. 业务逻辑校验：订单状态、权限验证等
  * 3. 异常处理：所有方法都要处理异常
  * 4. 日志记录：记录关键操作和错误信息
- * 
+ *
  * @author Shiwu Team
  * @version 1.0
  */
-public class ReviewServiceImpl implements ReviewService {
+@Service
+public class ReviewServiceImpl extends BaseService implements ReviewService {
 
-    private static final Logger logger = LoggerFactory.getLogger(ReviewServiceImpl.class);
+    @Autowired
+    private ReviewDao reviewDao;
 
-    private final ReviewDao reviewDao;
-    private final OrderDao orderDao;
-    private final UserService userService;
+    @Autowired
+    private OrderDao orderDao;
 
-    // 默认构造函数，使用默认的DAO实例
+    @Autowired
+    private UserService userService;
+
+    // 无参构造函数，用于MVC框架依赖注入
     public ReviewServiceImpl() {
+        // 为了兼容测试，在无参构造函数中初始化DAO
         this.reviewDao = new ReviewDao();
         this.orderDao = new OrderDao();
         this.userService = new com.shiwu.user.service.impl.UserServiceImpl();
+        logger.info("ReviewServiceImpl初始化完成 - 使用MVC框架依赖注入");
     }
 
-    // 用于测试的构造函数，支持依赖注入
+    // 兼容性构造函数，支持渐进式迁移
     public ReviewServiceImpl(ReviewDao reviewDao, OrderDao orderDao, UserService userService) {
         this.reviewDao = reviewDao;
         this.orderDao = orderDao;
         this.userService = userService;
+        logger.info("ReviewServiceImpl初始化完成 - 使用兼容性构造函数");
     }
 
     @Override

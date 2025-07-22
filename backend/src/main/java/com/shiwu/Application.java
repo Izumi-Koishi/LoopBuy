@@ -53,6 +53,17 @@ public class Application {
             // 注册所有Controller
             registerControllers(tomcat, context);
 
+            // 注册MVC框架的DispatcherServlet
+            try {
+                Class<?> dispatcherServletClass = Class.forName("com.shiwu.framework.web.DispatcherServlet");
+                Object dispatcherServlet = dispatcherServletClass.getDeclaredConstructor().newInstance();
+                tomcat.addServlet("", "DispatcherServlet", (javax.servlet.Servlet) dispatcherServlet);
+                context.addServletMappingDecoded("/mvc/*", "DispatcherServlet");
+                logger.info("✅ 已注册MVC框架DispatcherServlet: /mvc/*");
+            } catch (Exception e) {
+                logger.warn("❌ 注册DispatcherServlet失败: {}", e.getMessage());
+            }
+
             // 启动Tomcat
             logger.info("正在启动Shiwu校园二手交易平台...");
             logger.info("端口: {}", port);
@@ -68,6 +79,7 @@ public class Application {
             logger.info("🛍️ 商品API: http://localhost:{}/api/products/", port);
             logger.info("📊 仪表盘: http://localhost:{}/admin/dashboard/", port);
             logger.info("📋 审计日志: http://localhost:{}/api/admin/audit-logs/", port);
+            logger.info("🚀 MVC框架演示: http://localhost:{}/mvc/api/messages/", port);
 
             // 等待服务器关闭
             tomcat.getServer().await();

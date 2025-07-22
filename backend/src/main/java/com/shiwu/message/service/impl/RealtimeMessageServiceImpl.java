@@ -1,17 +1,17 @@
 package com.shiwu.message.service.impl;
 
 import com.shiwu.common.result.Result;
+import com.shiwu.framework.annotation.Autowired;
+import com.shiwu.framework.annotation.Service;
+import com.shiwu.framework.service.BaseService;
 import com.shiwu.message.dao.ConversationDao;
 import com.shiwu.message.dao.MessageDao;
 import com.shiwu.message.dto.MessagePollDTO;
 import com.shiwu.message.model.Message;
 import com.shiwu.message.service.MessageService;
 import com.shiwu.message.service.RealtimeMessageService;
-import com.shiwu.message.service.impl.MessageServiceImpl;
 import com.shiwu.message.vo.MessagePollVO;
 import com.shiwu.message.vo.MessageVO;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -20,17 +20,19 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * 实时消息服务实现类
- * 
+ * 实时消息服务实现类 - MVC框架版本
+ *
  * 基于轮询机制实现实时消息推送
  * 支持短轮询和长轮询两种模式
- * 
+ *
+ * 使用MVC框架的依赖注入，提高可测试性和解耦性
+ * 继承BaseService获得通用功能支持
+ *
  * @author LoopBuy Team
- * @version 1.0
+ * @version 2.0 (MVC Framework)
  */
-public class RealtimeMessageServiceImpl implements RealtimeMessageService {
-    
-    private static final Logger logger = LoggerFactory.getLogger(RealtimeMessageServiceImpl.class);
+@Service
+public class RealtimeMessageServiceImpl extends BaseService implements RealtimeMessageService {
     
     // 长轮询的默认超时时间（秒）
     private static final int DEFAULT_TIMEOUT_SECONDS = 30;
@@ -46,22 +48,26 @@ public class RealtimeMessageServiceImpl implements RealtimeMessageService {
     
     // 用户最后活跃时间记录
     private static final ConcurrentHashMap<Long, Long> userLastActiveTime = new ConcurrentHashMap<>();
-    
-    private final MessageDao messageDao;
-    private final ConversationDao conversationDao;
-    private final MessageService messageService;
-    
+
+    @Autowired
+    private MessageDao messageDao;
+
+    @Autowired
+    private ConversationDao conversationDao;
+
+    @Autowired
+    private MessageService messageService;
+
     public RealtimeMessageServiceImpl() {
-        this.messageDao = new MessageDao();
-        this.conversationDao = new ConversationDao();
-        this.messageService = new MessageServiceImpl();
+        logger.info("RealtimeMessageServiceImpl初始化完成 - 使用MVC框架依赖注入");
     }
-    
-    // 用于测试的构造函数
+
+    // 兼容性构造函数 - 支持测试和渐进式迁移
     public RealtimeMessageServiceImpl(MessageDao messageDao, ConversationDao conversationDao, MessageService messageService) {
         this.messageDao = messageDao;
         this.conversationDao = conversationDao;
         this.messageService = messageService;
+        logger.info("RealtimeMessageServiceImpl初始化完成 - 使用兼容性构造函数");
     }
     
     @Override

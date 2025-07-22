@@ -1,239 +1,151 @@
 package com.shiwu.message.controller;
 
 import com.shiwu.common.result.Result;
-import com.shiwu.common.util.JsonUtil;
 import com.shiwu.common.util.JwtUtil;
+import com.shiwu.framework.annotation.Autowired;
+import com.shiwu.framework.annotation.Controller;
+import com.shiwu.framework.annotation.RequestMapping;
+import com.shiwu.framework.annotation.RequestParam;
+import com.shiwu.framework.web.BaseController;
 import com.shiwu.message.dto.MessagePollDTO;
 import com.shiwu.message.service.RealtimeMessageService;
-import com.shiwu.message.service.impl.RealtimeMessageServiceImpl;
 import com.shiwu.message.vo.MessagePollVO;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
-import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import java.io.IOException;
-import java.io.PrintWriter;
 
 /**
- * 实时消息控制器
- * 
+ * 实时消息控制器 - MVC框架版本
+ *
  * 处理基于轮询的实时消息推送请求
  * 支持短轮询和长轮询两种模式
- * 
+ *
+ * 使用MVC框架的注解驱动方式，大幅简化代码
+ * 继承BaseController获得路由分发和统一处理功能
+ *
  * @author LoopBuy Team
- * @version 1.0
+ * @version 2.0 (MVC Framework)
  */
+@Controller
 @WebServlet("/api/realtime/*")
-public class RealtimeMessageController extends HttpServlet {
-    
-    private static final Logger logger = LoggerFactory.getLogger(RealtimeMessageController.class);
-    
+public class RealtimeMessageController extends BaseController {
+
+    @Autowired
     private RealtimeMessageService realtimeMessageService;
-    
-    @Override
-    public void init() throws ServletException {
-        super.init();
-        this.realtimeMessageService = new RealtimeMessageServiceImpl();
-        logger.info("RealtimeMessageController初始化完成");
+
+    public RealtimeMessageController() {
+        // 使用BaseController的logger
+        logger.info("RealtimeMessageController初始化完成 - 使用MVC框架依赖注入");
     }
-    
-    @Override
-    protected void doGet(HttpServletRequest request, HttpServletResponse response) 
-            throws ServletException, IOException {
-        
-        String pathInfo = request.getPathInfo();
-        logger.debug("处理实时消息GET请求: {}", pathInfo);
-        
-        try {
-            if (pathInfo == null || pathInfo.equals("/")) {
-                handlePollMessages(request, response);
-            } else if (pathInfo.startsWith("/poll")) {
-                handlePollMessages(request, response);
-            } else if (pathInfo.startsWith("/long-poll")) {
-                handleLongPollMessages(request, response);
-            } else if (pathInfo.startsWith("/status")) {
-                handleGetRealtimeStatus(request, response);
-            } else if (pathInfo.startsWith("/check")) {
-                handleCheckNewMessages(request, response);
-            } else if (pathInfo.startsWith("/online-count")) {
-                handleGetOnlineCount(request, response);
-            } else {
-                sendErrorResponse(response, 404, "接口不存在");
-            }
-        } catch (Exception e) {
-            logger.error("处理实时消息GET请求时发生异常: {}", pathInfo, e);
-            sendErrorResponse(response, 500, "服务器内部错误");
-        }
-    }
-    
-    @Override
-    protected void doPost(HttpServletRequest request, HttpServletResponse response) 
-            throws ServletException, IOException {
-        
-        String pathInfo = request.getPathInfo();
-        logger.debug("处理实时消息POST请求: {}", pathInfo);
-        
-        try {
-            if (pathInfo == null || pathInfo.equals("/") || pathInfo.equals("/poll")) {
-                handlePollMessagesWithBody(request, response);
-            } else if (pathInfo.startsWith("/long-poll")) {
-                handleLongPollMessagesWithBody(request, response);
-            } else {
-                sendErrorResponse(response, 404, "接口不存在");
-            }
-        } catch (Exception e) {
-            logger.error("处理实时消息POST请求时发生异常: {}", pathInfo, e);
-            sendErrorResponse(response, 500, "服务器内部错误");
-        }
-    }
-    
+
     /**
-     * 处理短轮询请求（GET方式）
+     * 轮询消息接口 - 主路径
      */
-    private void handlePollMessages(HttpServletRequest request, HttpServletResponse response) 
-            throws IOException {
-        
+    @RequestMapping(value = "/api/realtime/poll", method = "GET")
+    public Result<MessagePollVO> pollMessages(
+            @RequestParam(value = "lastMessageTime", defaultValue = "0") Long lastMessageTime,
+            @RequestParam(value = "timeout", defaultValue = "30") Integer timeout,
+            HttpServletRequest request) {
+
+        logger.debug("轮询消息: lastMessageTime={}, timeout={}", lastMessageTime, timeout);
+
         // 验证用户身份
         Long userId = getUserIdFromToken(request);
         if (userId == null) {
-            sendErrorResponse(response, 401, "未授权访问");
-            return;
+            return Result.fail("401", "未授权访问");
         }
-        
-        // 构建轮询参数
+
+        // 创建轮询DTO
         MessagePollDTO pollDTO = new MessagePollDTO();
-        pollDTO.setLastMessageTime(getLongParameter(request, "lastMessageTime", null));
-        pollDTO.setUnreadOnly(getBooleanParameter(request, "unreadOnly", false));
-        pollDTO.setLimit(getIntParameter(request, "limit", 50));
-        
-        Result<MessagePollVO> result = realtimeMessageService.pollNewMessages(userId, pollDTO);
-        sendJsonResponse(response, result);
+        pollDTO.setLastMessageTime(lastMessageTime);
+
+        return realtimeMessageService.pollNewMessages(userId, pollDTO);
     }
-    
+
     /**
-     * 处理短轮询请求（POST方式）
+     * 轮询消息接口 - 兼容性路径 (原来的 /api/realtime/)
      */
-    private void handlePollMessagesWithBody(HttpServletRequest request, HttpServletResponse response) 
-            throws IOException {
-        
+    @RequestMapping(value = "/api/realtime/", method = "GET")
+    public Result<MessagePollVO> pollMessagesCompat(
+            @RequestParam(value = "lastMessageTime", defaultValue = "0") Long lastMessageTime,
+            @RequestParam(value = "timeout", defaultValue = "30") Integer timeout,
+            HttpServletRequest request) {
+
+        return pollMessages(lastMessageTime, timeout, request);
+    }
+
+    /**
+     * 长轮询消息接口
+     */
+    @RequestMapping(value = "/api/realtime/long-poll", method = "GET")
+    public Result<MessagePollVO> longPollMessages(
+            @RequestParam(value = "lastMessageTime", defaultValue = "0") Long lastMessageTime,
+            @RequestParam(value = "timeout", defaultValue = "60") Integer timeout,
+            HttpServletRequest request) {
+
+        logger.debug("长轮询消息: lastMessageTime={}, timeout={}", lastMessageTime, timeout);
+
         // 验证用户身份
         Long userId = getUserIdFromToken(request);
         if (userId == null) {
-            sendErrorResponse(response, 401, "未授权访问");
-            return;
+            return Result.fail("401", "未授权访问");
         }
-        
-        // 解析请求体
-        MessagePollDTO pollDTO = parseRequestBody(request, MessagePollDTO.class);
-        if (pollDTO == null) {
-            pollDTO = new MessagePollDTO();
-        }
-        
-        Result<MessagePollVO> result = realtimeMessageService.pollNewMessages(userId, pollDTO);
-        sendJsonResponse(response, result);
-    }
-    
-    /**
-     * 处理长轮询请求（GET方式）
-     */
-    private void handleLongPollMessages(HttpServletRequest request, HttpServletResponse response) 
-            throws IOException {
-        
-        // 验证用户身份
-        Long userId = getUserIdFromToken(request);
-        if (userId == null) {
-            sendErrorResponse(response, 401, "未授权访问");
-            return;
-        }
-        
-        // 构建轮询参数
+
+        // 创建轮询DTO
         MessagePollDTO pollDTO = new MessagePollDTO();
-        pollDTO.setLastMessageTime(getLongParameter(request, "lastMessageTime", null));
-        pollDTO.setUnreadOnly(getBooleanParameter(request, "unreadOnly", false));
-        pollDTO.setLimit(getIntParameter(request, "limit", 50));
-        
-        int timeout = getIntParameter(request, "timeout", 30);
-        
-        Result<MessagePollVO> result = realtimeMessageService.longPollNewMessages(userId, pollDTO, timeout);
-        sendJsonResponse(response, result);
+        pollDTO.setLastMessageTime(lastMessageTime);
+
+        return realtimeMessageService.longPollNewMessages(userId, pollDTO, timeout);
     }
-    
+
     /**
-     * 处理长轮询请求（POST方式）
+     * 获取实时状态
      */
-    private void handleLongPollMessagesWithBody(HttpServletRequest request, HttpServletResponse response) 
-            throws IOException {
-        
+    @RequestMapping(value = "/api/realtime/status", method = "GET")
+    public Result<MessagePollVO> getRealtimeStatus(HttpServletRequest request) {
+
+        logger.debug("获取实时状态");
+
         // 验证用户身份
         Long userId = getUserIdFromToken(request);
         if (userId == null) {
-            sendErrorResponse(response, 401, "未授权访问");
-            return;
+            return Result.fail("401", "未授权访问");
         }
-        
-        // 解析请求体
-        MessagePollDTO pollDTO = parseRequestBody(request, MessagePollDTO.class);
-        if (pollDTO == null) {
-            pollDTO = new MessagePollDTO();
-        }
-        
-        int timeout = getIntParameter(request, "timeout", 30);
-        
-        Result<MessagePollVO> result = realtimeMessageService.longPollNewMessages(userId, pollDTO, timeout);
-        sendJsonResponse(response, result);
+
+        return realtimeMessageService.getUserRealtimeStatus(userId);
     }
-    
+
     /**
-     * 获取用户实时状态
+     * 检查新消息
      */
-    private void handleGetRealtimeStatus(HttpServletRequest request, HttpServletResponse response) 
-            throws IOException {
-        
+    @RequestMapping(value = "/api/realtime/check", method = "GET")
+    public Result<Boolean> checkNewMessages(
+            @RequestParam(value = "lastCheckTime", defaultValue = "0") Long lastCheckTime,
+            HttpServletRequest request) {
+
+        logger.debug("检查新消息: lastCheckTime={}", lastCheckTime);
+
         // 验证用户身份
         Long userId = getUserIdFromToken(request);
         if (userId == null) {
-            sendErrorResponse(response, 401, "未授权访问");
-            return;
+            return Result.fail("401", "未授权访问");
         }
-        
-        Result<MessagePollVO> result = realtimeMessageService.getUserRealtimeStatus(userId);
-        sendJsonResponse(response, result);
+
+        return realtimeMessageService.hasNewMessages(userId, lastCheckTime);
     }
-    
-    /**
-     * 检查是否有新消息
-     */
-    private void handleCheckNewMessages(HttpServletRequest request, HttpServletResponse response) 
-            throws IOException {
-        
-        // 验证用户身份
-        Long userId = getUserIdFromToken(request);
-        if (userId == null) {
-            sendErrorResponse(response, 401, "未授权访问");
-            return;
-        }
-        
-        Long lastCheckTime = getLongParameter(request, "lastCheckTime", null);
-        
-        Result<Boolean> result = realtimeMessageService.hasNewMessages(userId, lastCheckTime);
-        sendJsonResponse(response, result);
-    }
-    
+
     /**
      * 获取在线用户数量
      */
-    private void handleGetOnlineCount(HttpServletRequest request, HttpServletResponse response) 
-            throws IOException {
-        
-        int onlineCount = realtimeMessageService.getOnlineUserCount();
-        Result<Integer> result = Result.success(onlineCount);
-        sendJsonResponse(response, result);
+    @RequestMapping(value = "/api/realtime/online-count", method = "GET")
+    public Result<Integer> getOnlineCount() {
+
+        logger.debug("获取在线用户数量");
+
+        int count = realtimeMessageService.getOnlineUserCount();
+        return Result.success(count);
     }
-    
+
     /**
      * 从JWT Token中获取用户ID
      */
@@ -242,7 +154,7 @@ public class RealtimeMessageController extends HttpServlet {
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             return null;
         }
-        
+
         String token = authHeader.substring(7);
         try {
             return JwtUtil.getUserIdFromToken(token);
@@ -251,96 +163,48 @@ public class RealtimeMessageController extends HttpServlet {
             return null;
         }
     }
-    
+
     /**
-     * 解析请求体
+     * 轮询消息接口 - POST方法支持
      */
-    private <T> T parseRequestBody(HttpServletRequest request, Class<T> clazz) {
-        try {
-            String requestBody = getRequestBody(request);
-            if (requestBody == null || requestBody.trim().isEmpty()) {
-                return null;
-            }
-            return JsonUtil.fromJson(requestBody, clazz);
-        } catch (Exception e) {
-            logger.warn("解析请求体失败: {}", e.getMessage());
-            return null;
+    @RequestMapping(value = "/api/realtime/poll", method = "POST")
+    public Result<MessagePollVO> pollMessagesPost(HttpServletRequest request) {
+
+        logger.debug("POST轮询消息");
+
+        // 验证用户身份
+        Long userId = getUserIdFromToken(request);
+        if (userId == null) {
+            return Result.fail("401", "未授权访问");
         }
+
+        // 创建默认轮询DTO
+        MessagePollDTO pollDTO = new MessagePollDTO();
+        pollDTO.setLastMessageTime(0L);
+
+        return realtimeMessageService.pollNewMessages(userId, pollDTO);
     }
-    
+
     /**
-     * 获取请求体内容
+     * 长轮询消息接口 - POST方法支持
      */
-    private String getRequestBody(HttpServletRequest request) throws IOException {
-        StringBuilder sb = new StringBuilder();
-        String line;
-        while ((line = request.getReader().readLine()) != null) {
-            sb.append(line);
+    @RequestMapping(value = "/api/realtime/long-poll", method = "POST")
+    public Result<MessagePollVO> longPollMessagesPost(
+            @RequestParam(value = "timeout", defaultValue = "60") Integer timeout,
+            HttpServletRequest request) {
+
+        logger.debug("POST长轮询消息: timeout={}", timeout);
+
+        // 验证用户身份
+        Long userId = getUserIdFromToken(request);
+        if (userId == null) {
+            return Result.fail("401", "未授权访问");
         }
-        return sb.toString();
-    }
-    
-    /**
-     * 获取整数参数
-     */
-    private int getIntParameter(HttpServletRequest request, String name, int defaultValue) {
-        String value = request.getParameter(name);
-        if (value == null || value.trim().isEmpty()) {
-            return defaultValue;
-        }
-        try {
-            return Integer.parseInt(value);
-        } catch (NumberFormatException e) {
-            return defaultValue;
-        }
-    }
-    
-    /**
-     * 获取长整数参数
-     */
-    private Long getLongParameter(HttpServletRequest request, String name, Long defaultValue) {
-        String value = request.getParameter(name);
-        if (value == null || value.trim().isEmpty()) {
-            return defaultValue;
-        }
-        try {
-            return Long.parseLong(value);
-        } catch (NumberFormatException e) {
-            return defaultValue;
-        }
-    }
-    
-    /**
-     * 获取布尔参数
-     */
-    private boolean getBooleanParameter(HttpServletRequest request, String name, boolean defaultValue) {
-        String value = request.getParameter(name);
-        if (value == null || value.trim().isEmpty()) {
-            return defaultValue;
-        }
-        return Boolean.parseBoolean(value);
-    }
-    
-    /**
-     * 发送JSON响应
-     */
-    private void sendJsonResponse(HttpServletResponse response, Object data) throws IOException {
-        response.setContentType("application/json;charset=UTF-8");
-        response.setCharacterEncoding("UTF-8");
-        
-        try (PrintWriter writer = response.getWriter()) {
-            String json = JsonUtil.toJson(data);
-            writer.write(json);
-            writer.flush();
-        }
-    }
-    
-    /**
-     * 发送错误响应
-     */
-    private void sendErrorResponse(HttpServletResponse response, int status, String message) throws IOException {
-        response.setStatus(status);
-        Result<Object> errorResult = Result.error(message);
-        sendJsonResponse(response, errorResult);
+
+        // 创建默认轮询DTO
+        MessagePollDTO pollDTO = new MessagePollDTO();
+        pollDTO.setLastMessageTime(0L);
+
+        return realtimeMessageService.longPollNewMessages(userId, pollDTO, timeout);
     }
 }

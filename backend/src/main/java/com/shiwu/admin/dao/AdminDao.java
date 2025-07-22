@@ -2,6 +2,7 @@ package com.shiwu.admin.dao;
 
 import com.shiwu.admin.model.Administrator;
 import com.shiwu.common.util.DBUtil;
+import com.shiwu.framework.annotation.Repository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -9,8 +10,9 @@ import java.sql.*;
 import java.time.LocalDateTime;
 
 /**
- * 管理员数据访问对象
+ * 管理员数据访问对象 - MVC框架版本
  */
+@Repository
 public class AdminDao {
     private static final Logger logger = LoggerFactory.getLogger(AdminDao.class);
 

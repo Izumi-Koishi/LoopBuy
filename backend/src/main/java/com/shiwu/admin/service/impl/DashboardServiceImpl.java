@@ -4,12 +4,13 @@ import com.shiwu.admin.dao.AuditLogDao;
 import com.shiwu.admin.model.DashboardStatsVO;
 import com.shiwu.admin.model.StatsPeriod;
 import com.shiwu.admin.service.DashboardService;
+import com.shiwu.framework.annotation.Autowired;
+import com.shiwu.framework.annotation.Service;
+import com.shiwu.framework.service.BaseService;
 import com.shiwu.product.dao.ProductDao;
 import com.shiwu.product.model.Product;
 import com.shiwu.user.dao.FollowDao;
 import com.shiwu.user.dao.UserDao;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
 //import java.time.LocalTime;
@@ -19,35 +20,46 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 仪表盘服务实现类
+ * 仪表盘服务实现类 - MVC框架版本
  */
-public class DashboardServiceImpl implements DashboardService {
-    private static final Logger logger = LoggerFactory.getLogger(DashboardServiceImpl.class);
-    
-    private final UserDao userDao;
-    private final ProductDao productDao;
-    private final AuditLogDao auditLogDao;
-    private final FollowDao followDao;
+@Service
+public class DashboardServiceImpl extends BaseService implements DashboardService {
+
+    @Autowired
+    private UserDao userDao;
+
+    @Autowired
+    private ProductDao productDao;
+
+    @Autowired
+    private AuditLogDao auditLogDao;
+
+    @Autowired
+    private FollowDao followDao;
     
     // 缓存相关
     private DashboardStatsVO cachedStats;
     private LocalDateTime lastCacheTime;
     private static final long CACHE_DURATION_MINUTES = 5; // 缓存5分钟
-    
+
+    // 无参构造函数，用于MVC框架依赖注入
     public DashboardServiceImpl() {
+        // 为了兼容测试，在无参构造函数中初始化DAO
         this.userDao = new UserDao();
         this.productDao = new ProductDao();
         this.auditLogDao = new AuditLogDao();
         this.followDao = new FollowDao();
+        logger.info("DashboardServiceImpl初始化完成 - 使用MVC框架依赖注入");
     }
-    
-    // 用于测试的构造函数，支持依赖注入
-    public DashboardServiceImpl(UserDao userDao, ProductDao productDao, 
+
+    // 兼容性构造函数，支持渐进式迁移
+    public DashboardServiceImpl(UserDao userDao, ProductDao productDao,
                                AuditLogDao auditLogDao, FollowDao followDao) {
         this.userDao = userDao;
         this.productDao = productDao;
         this.auditLogDao = auditLogDao;
         this.followDao = followDao;
+        logger.info("DashboardServiceImpl初始化完成 - 使用兼容性构造函数");
     }
     
     @Override

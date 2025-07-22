@@ -1,6 +1,7 @@
 package com.shiwu.user.dao;
 
 import com.shiwu.common.util.DBUtil;
+import com.shiwu.framework.annotation.Repository;
 import com.shiwu.user.vo.FeedItemVO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,14 +12,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 关注动态信息流数据访问对象
- * 
+ * 关注动态信息流数据访问对象 - MVC框架版本
+ *
  * 用于Task4_2_1_3: 获取关注动态信息流API
- * 
+ *
  * @author LoopBuy Team
- * @version 1.0
+ * @version 2.0 (MVC Framework)
  * @since 2024-01-15
  */
+@Repository
 public class FeedDao {
     
     private static final Logger logger = LoggerFactory.getLogger(FeedDao.class);

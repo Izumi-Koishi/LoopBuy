@@ -1,27 +1,23 @@
 package com.shiwu.notification.controller;
 
 import com.shiwu.common.result.Result;
-import com.shiwu.common.util.JsonUtil;
-import com.shiwu.common.util.JwtUtil;
+import com.shiwu.framework.annotation.Autowired;
+import com.shiwu.framework.annotation.Controller;
+import com.shiwu.framework.annotation.PathVariable;
+import com.shiwu.framework.annotation.RequestMapping;
+import com.shiwu.framework.annotation.RequestParam;
+import com.shiwu.framework.web.BaseController;
 import com.shiwu.notification.service.NotificationService;
-import com.shiwu.notification.service.impl.NotificationServiceImpl;
 import com.shiwu.notification.vo.NotificationVO;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
-import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import java.io.IOException;
-import java.io.PrintWriter;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * 通知控制器
+ * 通知控制器 - MVC框架版本
  *
  * 用于Task4_2_1_2: 商品审核通过粉丝通知功能
  * 用于Task4_3_1_3: 获取通知列表和未读计数的API
@@ -32,304 +28,173 @@ import java.util.stream.Collectors;
  * - PUT /api/notification/mark-read - 标记单个通知已读
  * - PUT /api/notification/mark-all-read - 批量标记通知已读
  *
+ * 使用MVC框架的注解驱动方式，大幅简化代码
+ * 继承BaseController获得路由分发和统一处理功能
+ *
  * @author LoopBuy Team
- * @version 1.0
+ * @version 2.0 (MVC Framework)
  * @since 2024-01-15
  */
+@Controller
 @WebServlet("/api/notification/*")
-public class NotificationController extends HttpServlet {
+public class NotificationController extends BaseController {
     
-    private static final Logger logger = LoggerFactory.getLogger(NotificationController.class);
-    
-    private final NotificationService notificationService;
-    
-    public NotificationController() {
-        this.notificationService = new NotificationServiceImpl();
-    }
+    @Autowired
+    private NotificationService notificationService;
     
     // 用于测试的构造函数
     public NotificationController(NotificationService notificationService) {
         this.notificationService = notificationService;
     }
     
-    @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        String pathInfo = req.getPathInfo();
-        
-        if (pathInfo == null) {
-            sendErrorResponse(resp, "404", "请求路径不存在");
-            return;
-        }
-        
-        try {
-            switch (pathInfo) {
-                case "/list":
-                    handleGetNotificationList(req, resp);
-                    break;
-                case "/unread-count":
-                    handleGetUnreadCount(req, resp);
-                    break;
-                default:
-                    sendErrorResponse(resp, "404", "请求路径不存在");
-                    break;
-            }
-        } catch (Exception e) {
-            logger.error("处理GET请求失败: {}", e.getMessage(), e);
-            sendErrorResponse(resp, "500", "服务器内部错误");
-        }
-    }
-    
-    @Override
-    protected void doPut(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        String pathInfo = req.getPathInfo();
-        
-        if (pathInfo == null) {
-            sendErrorResponse(resp, "404", "请求路径不存在");
-            return;
-        }
-        
-        try {
-            if (pathInfo.equals("/mark-read")) {
-                handleMarkAsRead(req, resp);
-            } else if (pathInfo.equals("/mark-all-read")) {
-                handleMarkAllAsRead(req, resp);
-            } else {
-                sendErrorResponse(resp, "404", "请求路径不存在");
-            }
-        } catch (Exception e) {
-            logger.error("处理PUT请求失败: {}", e.getMessage(), e);
-            sendErrorResponse(resp, "500", "服务器内部错误");
-        }
-    }
-    
     /**
-     * 处理获取通知列表请求
+     * 获取通知列表
      * API: GET /api/notification/list
      */
-    private void handleGetNotificationList(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        // 获取当前登录用户ID（从JWT token中解析）
-        Long userId = getCurrentUserIdFromToken(req);
-        if (userId == null) {
-            sendErrorResponse(resp, "401", "请先登录");
-            return;
-        }
+    @RequestMapping(value = "/api/notification/list", method = "GET")
+    public Result<List<NotificationVO>> getNotificationList(
+            @RequestParam(value = "page", defaultValue = "1") Integer page,
+            @RequestParam(value = "size", defaultValue = "20") Integer size,
+            @RequestParam(value = "onlyUnread", defaultValue = "false") Boolean onlyUnread,
+            HttpServletRequest request) {
         
-        // 获取分页参数
-        int page = getIntParameter(req, "page", 1);
-        int size = getIntParameter(req, "size", 20);
-        boolean onlyUnread = getBooleanParameter(req, "onlyUnread", false);
+        logger.debug("获取通知列表: page={}, size={}, onlyUnread={}", page, size, onlyUnread);
+        
+        // 获取当前登录用户ID（从JWT token中解析）
+        Long userId = getUserIdFromToken(request);
+        if (userId == null) {
+            return Result.fail("401", "请先登录");
+        }
         
         // 参数验证
-        if (page < 1) page = 1;
-        if (size < 1 || size > 100) size = 20;
-        
-        // 调用服务获取通知列表
-        Result<List<NotificationVO>> result = notificationService.getUserNotifications(userId, page, size, onlyUnread);
-        
-        if (result.isSuccess()) {
-            sendSuccessResponse(resp, result.getData());
-            logger.debug("获取通知列表成功: userId={}, page={}, size={}, count={}", 
-                        userId, page, size, result.getData().size());
-        } else {
-            sendErrorResponse(resp, "400", result.getMessage());
+        if (page < 1) {
+            return Result.fail("400", "页码必须大于0");
         }
+        if (size < 1 || size > 100) {
+            return Result.fail("400", "每页大小必须在1-100之间");
+        }
+        
+        return notificationService.getUserNotifications(userId, page, size, onlyUnread);
     }
     
     /**
-     * 处理获取未读通知数量请求
+     * 获取未读通知数量
      * API: GET /api/notification/unread-count
      */
-    private void handleGetUnreadCount(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+    @RequestMapping(value = "/api/notification/unread-count", method = "GET")
+    public Result<Integer> getUnreadCount(HttpServletRequest request) {
+        
+        logger.debug("获取未读通知数量");
+        
         // 获取当前登录用户ID
-        Long userId = getCurrentUserIdFromToken(req);
+        Long userId = getUserIdFromToken(request);
         if (userId == null) {
-            sendErrorResponse(resp, "401", "请先登录");
-            return;
+            return Result.fail("401", "请先登录");
         }
         
-        // 调用服务获取未读数量
-        Result<Integer> result = notificationService.getUnreadNotificationCount(userId);
-        
-        if (result.isSuccess()) {
-            sendSuccessResponse(resp, result.getData());
-            logger.debug("获取未读通知数量成功: userId={}, count={}", userId, result.getData());
-        } else {
-            sendErrorResponse(resp, "400", result.getMessage());
-        }
+        return notificationService.getUnreadNotificationCount(userId);
     }
     
     /**
-     * 处理标记通知已读请求
+     * 标记通知为已读
      * API: PUT /api/notification/mark-read
      */
-    private void handleMarkAsRead(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+    @RequestMapping(value = "/api/notification/mark-read", method = "PUT")
+    public Result<Void> markAsRead(
+            @RequestParam("id") Long notificationId,
+            HttpServletRequest request) {
+        
+        logger.debug("标记通知为已读: notificationId={}", notificationId);
+        
         // 获取当前登录用户ID
-        Long userId = getCurrentUserIdFromToken(req);
+        Long userId = getUserIdFromToken(request);
         if (userId == null) {
-            sendErrorResponse(resp, "401", "请先登录");
-            return;
+            return Result.fail("401", "请先登录");
         }
         
-        // 获取通知ID参数
-        String notificationIdStr = req.getParameter("id");
-        if (notificationIdStr == null || notificationIdStr.trim().isEmpty()) {
-            sendErrorResponse(resp, "400", "通知ID不能为空");
-            return;
+        // 参数验证
+        if (notificationId == null) {
+            return Result.fail("400", "通知ID不能为空");
         }
         
-        try {
-            Long notificationId = Long.parseLong(notificationIdStr);
-            
-            // 调用服务标记已读
-            Result<Void> result = notificationService.markNotificationAsRead(notificationId, userId);
-            
-            if (result.isSuccess()) {
-                sendSuccessResponse(resp, null);
-                logger.info("标记通知已读成功: userId={}, notificationId={}", userId, notificationId);
-            } else {
-                sendErrorResponse(resp, "400", result.getMessage());
-            }
-            
-        } catch (NumberFormatException e) {
-            sendErrorResponse(resp, "400", "通知ID格式错误");
-        }
+        return notificationService.markNotificationAsRead(notificationId, userId);
     }
     
     /**
-     * 处理标记所有通知已读请求
+     * 批量标记通知为已读
      * API: PUT /api/notification/mark-all-read
      */
-    private void handleMarkAllAsRead(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+    @RequestMapping(value = "/api/notification/mark-all-read", method = "PUT")
+    public Result<Integer> markAllAsRead(
+            @RequestParam(value = "ids", required = false) String ids,
+            HttpServletRequest request) {
+        
+        logger.debug("批量标记通知为已读: ids={}", ids);
+        
         // 获取当前登录用户ID
-        Long userId = getCurrentUserIdFromToken(req);
+        Long userId = getUserIdFromToken(request);
         if (userId == null) {
-            sendErrorResponse(resp, "401", "请先登录");
-            return;
+            return Result.fail("401", "请先登录");
         }
         
-        // 获取可选的通知ID列表参数
-        String idsParam = req.getParameter("ids");
         List<Long> notificationIds = null;
         
-        if (idsParam != null && !idsParam.trim().isEmpty()) {
+        // 如果提供了ids参数，解析为Long列表
+        if (ids != null && !ids.trim().isEmpty()) {
             try {
-                notificationIds = Arrays.stream(idsParam.split(","))
-                    .map(String::trim)
-                    .map(Long::parseLong)
-                    .collect(Collectors.toList());
-            } catch (NumberFormatException e) {
-                sendErrorResponse(resp, "400", "通知ID格式错误");
-                return;
-            }
-        }
-        
-        // 调用服务批量标记已读
-        Result<Integer> result = notificationService.batchMarkNotificationsAsRead(userId, notificationIds);
-        
-        if (result.isSuccess()) {
-            sendSuccessResponse(resp, result.getData());
-            logger.info("批量标记通知已读成功: userId={}, count={}", userId, result.getData());
-        } else {
-            sendErrorResponse(resp, "400", result.getMessage());
-        }
-    }
-    
-    /**
-     * 从JWT Token中获取当前用户ID
-     * Task4_3_1_3: 完善JWT Token解析逻辑
-     */
-    private Long getCurrentUserIdFromToken(HttpServletRequest req) {
-        // 优先从Authorization Header中获取JWT Token
-        String authHeader = req.getHeader("Authorization");
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String token = authHeader.substring(7);
-            try {
-                if (JwtUtil.validateToken(token)) {
-                    return JwtUtil.getUserIdFromToken(token);
-                } else {
-                    logger.warn("JWT Token验证失败");
+                notificationIds = Arrays.stream(ids.split(","))
+                        .map(String::trim)
+                        .filter(s -> !s.isEmpty())
+                        .map(Long::parseLong)
+                        .collect(Collectors.toList());
+                
+                if (notificationIds.isEmpty()) {
+                    return Result.fail("400", "通知ID列表不能为空");
                 }
-            } catch (Exception e) {
-                logger.warn("JWT Token解析失败: {}", e.getMessage());
-            }
-        }
-
-        // 兼容性支持：从X-User-Id Header中获取（用于测试）
-        String userIdHeader = req.getHeader("X-User-Id");
-        if (userIdHeader != null) {
-            try {
-                Long userId = Long.parseLong(userIdHeader);
-                logger.debug("使用X-User-Id Header获取用户ID: {}", userId);
-                return userId;
             } catch (NumberFormatException e) {
-                logger.warn("用户ID格式错误: {}", userIdHeader);
+                logger.warn("解析通知ID列表失败: ids={}, error={}", ids, e.getMessage());
+                return Result.fail("400", "通知ID格式错误");
             }
         }
-
-        return null;
+        
+        return notificationService.batchMarkNotificationsAsRead(userId, notificationIds);
     }
     
     /**
-     * 获取整数参数
+     * 标记单个通知为已读 - 路径参数版本
+     * API: PUT /api/notification/{id}/read
      */
-    private int getIntParameter(HttpServletRequest req, String name, int defaultValue) {
-        String value = req.getParameter(name);
-        if (value != null && !value.trim().isEmpty()) {
-            try {
-                return Integer.parseInt(value);
-            } catch (NumberFormatException e) {
-                logger.warn("参数格式错误: {}={}", name, value);
-            }
+    @RequestMapping(value = "/api/notification/{id}/read", method = "PUT")
+    public Result<Void> markAsReadByPath(
+            @PathVariable("id") Long notificationId,
+            HttpServletRequest request) {
+        
+        logger.debug("标记通知为已读(路径参数): notificationId={}", notificationId);
+        
+        // 获取当前登录用户ID
+        Long userId = getUserIdFromToken(request);
+        if (userId == null) {
+            return Result.fail("401", "请先登录");
         }
-        return defaultValue;
+        
+        return notificationService.markNotificationAsRead(notificationId, userId);
     }
     
     /**
-     * 获取布尔参数
+     * 从JWT Token中获取用户ID
      */
-    private boolean getBooleanParameter(HttpServletRequest req, String name, boolean defaultValue) {
-        String value = req.getParameter(name);
-        if (value != null && !value.trim().isEmpty()) {
-            return "true".equalsIgnoreCase(value) || "1".equals(value);
+    private Long getUserIdFromToken(HttpServletRequest request) {
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return null;
         }
-        return defaultValue;
-    }
-    
-    /**
-     * 发送成功响应
-     */
-    private void sendSuccessResponse(HttpServletResponse resp, Object data) throws IOException {
-        resp.setContentType("application/json");
-        resp.setCharacterEncoding("UTF-8");
-        resp.setStatus(HttpServletResponse.SC_OK);
         
-        Result<Object> result = Result.success(data);
-        String jsonResponse = JsonUtil.toJson(result);
-        
-        PrintWriter out = resp.getWriter();
-        out.print(jsonResponse);
-        out.flush();
-    }
-    
-    /**
-     * 发送错误响应
-     */
-    private void sendErrorResponse(HttpServletResponse resp, String code, String message) throws IOException {
-        resp.setContentType("application/json");
-        resp.setCharacterEncoding("UTF-8");
-        
-        int statusCode = "401".equals(code) ? HttpServletResponse.SC_UNAUTHORIZED :
-                        "404".equals(code) ? HttpServletResponse.SC_NOT_FOUND :
-                        "500".equals(code) ? HttpServletResponse.SC_INTERNAL_SERVER_ERROR :
-                        HttpServletResponse.SC_BAD_REQUEST;
-        
-        resp.setStatus(statusCode);
-        
-        Result<Object> result = Result.error(message);
-        String jsonResponse = JsonUtil.toJson(result);
-        
-        PrintWriter out = resp.getWriter();
-        out.print(jsonResponse);
-        out.flush();
+        String token = authHeader.substring(7);
+        try {
+            return com.shiwu.common.util.JwtUtil.getUserIdFromToken(token);
+        } catch (Exception e) {
+            logger.warn("解析JWT Token失败: {}", e.getMessage());
+            return null;
+        }
     }
 }

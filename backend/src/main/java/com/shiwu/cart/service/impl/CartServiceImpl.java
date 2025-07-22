@@ -3,10 +3,11 @@ package com.shiwu.cart.service.impl;
 import com.shiwu.cart.dao.CartDao;
 import com.shiwu.cart.model.*;
 import com.shiwu.cart.service.CartService;
+import com.shiwu.framework.annotation.Autowired;
+import com.shiwu.framework.annotation.Service;
+import com.shiwu.framework.service.BaseService;
 import com.shiwu.product.dao.ProductDao;
 import com.shiwu.product.model.Product;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.util.HashMap;
@@ -14,17 +15,29 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 购物车服务实现类
+ * 购物车服务实现类 - MVC框架版本
  */
-public class CartServiceImpl implements CartService {
-    private static final Logger logger = LoggerFactory.getLogger(CartServiceImpl.class);
-    
-    private final CartDao cartDao;
-    private final ProductDao productDao;
-    
+@Service
+public class CartServiceImpl extends BaseService implements CartService {
+
+    @Autowired
+    private CartDao cartDao;
+
+    @Autowired
+    private ProductDao productDao;
+
     public CartServiceImpl() {
+        // 为了兼容测试，在无参构造函数中初始化DAO
         this.cartDao = new CartDao();
         this.productDao = new ProductDao();
+        logger.info("CartServiceImpl初始化完成 - 使用MVC框架依赖注入");
+    }
+
+    // 兼容性构造函数，支持渐进式迁移
+    public CartServiceImpl(CartDao cartDao, ProductDao productDao) {
+        this.cartDao = cartDao;
+        this.productDao = productDao;
+        logger.info("CartServiceImpl初始化完成 - 使用兼容性构造函数");
     }
     
     @Override

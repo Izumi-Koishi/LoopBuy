@@ -12,6 +12,7 @@ import {
   UserStatusLabels,
   UserStatusColors
 } from '../types/user-management';
+import UserDetailModal from '../components/UserDetailModal';
 import '../../../shared/styles/admin-pages.css';
 
 const UserManagementPageFinal: React.FC = () => {
@@ -34,6 +35,12 @@ const UserManagementPageFinal: React.FC = () => {
       total: 0
     },
     actionModalVisible: false
+  });
+
+  // 用户详情弹窗状态
+  const [detailModal, setDetailModal] = useState({
+    visible: false,
+    userId: null as number | null
   });
 
   // 用户统计信息
@@ -212,6 +219,22 @@ const UserManagementPageFinal: React.FC = () => {
   // 分页处理
   const handlePageChange = (page: number) => {
     fetchUsers({ pageNum: page });
+  };
+
+  // 查看用户详情
+  const handleViewUserDetail = (userId: number) => {
+    setDetailModal({
+      visible: true,
+      userId: userId
+    });
+  };
+
+  // 关闭用户详情弹窗
+  const handleCloseUserDetail = () => {
+    setDetailModal({
+      visible: false,
+      userId: null
+    });
   };
 
   return (
@@ -540,7 +563,7 @@ const UserManagementPageFinal: React.FC = () => {
                               </button>
                             )}
                             <button
-                              onClick={() => alert(`查看用户 ${user.username} 的详细信息`)}
+                              onClick={() => handleViewUserDetail(user.id)}
                               style={{
                                 padding: '4px 8px',
                                 fontSize: '12px',
@@ -603,6 +626,13 @@ const UserManagementPageFinal: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* 用户详情弹窗 */}
+      <UserDetailModal
+        visible={detailModal.visible}
+        userId={detailModal.userId}
+        onClose={handleCloseUserDetail}
+      />
     </AdminLayout>
   );
 };

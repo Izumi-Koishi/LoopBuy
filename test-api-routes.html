@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API路由测试</title>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <h1>LoopBuy API路由测试</h1>
+    
+    <div>
+        <h2>用户管理API测试</h2>
+        <button onclick="testLogin()">测试登录</button>
+        <button onclick="testGetUsers()">获取用户列表</button>
+        <button onclick="testUnbanUser()">测试解封用户</button>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080';
+        let authToken = '';
+
+        function log(message) {
+            const results = document.getElementById('results');
+            results.innerHTML += '<p>' + new Date().toLocaleTimeString() + ': ' + message + '</p>';
+        }
+
+        async function testLogin() {
+            try {
+                const response = await fetch(`${API_BASE}/api/admin/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: 'admin',
+                        password: 'admin123'
+                    })
+                });
+                
+                const data = await response.json();
+                log(`登录测试: ${response.status} - ${JSON.stringify(data)}`);
+                
+                if (data.success && data.data && data.data.token) {
+                    authToken = data.data.token;
+                    log(`获取到token: ${authToken.substring(0, 20)}...`);
+                }
+            } catch (error) {
+                log(`登录失败: ${error.message}`);
+            }
+        }
+
+        async function testGetUsers() {
+            if (!authToken) {
+                log('请先登录获取token');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/admin/users?pageNum=1&pageSize=10`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                log(`获取用户列表: ${response.status} - ${JSON.stringify(data)}`);
+            } catch (error) {
+                log(`获取用户列表失败: ${error.message}`);
+            }
+        }
+
+        async function testUnbanUser() {
+            if (!authToken) {
+                log('请先登录获取token');
+                return;
+            }
+
+            try {
+                // 测试解封用户 - 使用PUT方法
+                const response = await fetch(`${API_BASE}/api/admin/users/1/unban`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({})
+                });
+                
+                const data = await response.json();
+                log(`解封用户测试 (PUT): ${response.status} - ${JSON.stringify(data)}`);
+            } catch (error) {
+                log(`解封用户失败: ${error.message}`);
+            }
+        }
+    </script>
+</body>
+</html>

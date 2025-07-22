@@ -187,7 +187,7 @@ const DashboardPage: React.FC = () => {
         <div className="page-header">
           <div className="page-title-section">
             <h1 className="page-title">数据仪表盘</h1>
-            <p className="page-subtitle">Shiwu校园二手交易平台管理系统</p>
+            <p className="page-subtitle">拾物校园二手交易平台管理系统</p>
           </div>
           <div className="page-actions">
             <button onClick={handleRefresh} className="refresh-btn" disabled={loading}>

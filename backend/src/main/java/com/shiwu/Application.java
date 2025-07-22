@@ -71,7 +71,7 @@ public class Application {
 
             tomcat.start();
 
-            logger.info("🎉 Shiwu校园二手交易平台启动成功！");
+            logger.info("🎉 拾物校园二手交易平台启动成功！");
             logger.info("🌐 访问地址: http://localhost:{}", port);
             logger.info("📋 API文档: http://localhost:{}/api/", port);
             logger.info("🔐 管理员登录: http://localhost:{}/api/admin/login", port);

@@ -80,7 +80,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         <div className="sidebar-header">
           <div className="logo">
             <span className="logo-icon">🛒</span>
-            {!sidebarCollapsed && <span className="logo-text">Shiwu管理后台</span>}
+            {!sidebarCollapsed && <span className="logo-text">拾物管理后台</span>}
           </div>
           <button 
             className="sidebar-toggle"

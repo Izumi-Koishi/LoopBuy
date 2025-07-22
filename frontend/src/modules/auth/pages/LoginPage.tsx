@@ -63,7 +63,7 @@ const LoginPage: React.FC = () => {
     <div className="login-page">
       <div className="login-container">
         <div className="login-header">
-          <h1>Shiwu管理后台</h1>
+          <h1>拾物管理后台</h1>
           <p>校园二手交易平台管理系统</p>
         </div>
         
@@ -129,7 +129,7 @@ const LoginPage: React.FC = () => {
         </form>
         
         <div className="login-footer">
-          <p>© 2024 Shiwu校园二手交易平台</p>
+          <p>© 2024 拾物校园二手交易平台</p>
         </div>
       </div>
     </div>

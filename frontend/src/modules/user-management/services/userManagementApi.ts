@@ -71,7 +71,7 @@ class UserManagementApiService {
         };
       }
 
-      const response = await api.post(`/admin/users/${userId}/ban`, params);
+      const response = await api.put(`/admin/users/${userId}/ban`, params);
       return response.data;
     } catch (error: any) {
       console.error('封禁用户失败:', error);
@@ -92,7 +92,7 @@ class UserManagementApiService {
   // 解封用户 - 与后端API对齐
   async unbanUser(userId: number, params: UserManageParams = {}): Promise<UserManageResponse> {
     try {
-      const response = await api.post(`/admin/users/${userId}/unban`, params);
+      const response = await api.put(`/admin/users/${userId}/unban`, params);
       return response.data;
     } catch (error: any) {
       console.error('解封用户失败:', error);
@@ -123,7 +123,7 @@ class UserManagementApiService {
         };
       }
 
-      const response = await api.post(`/admin/users/${userId}/mute`, params);
+      const response = await api.put(`/admin/users/${userId}/mute`, params);
       return response.data;
     } catch (error: any) {
       console.error('禁言用户失败:', error);
@@ -140,7 +140,7 @@ class UserManagementApiService {
   // 解除禁言
   async unmuteUser(userId: number, params: UserManageParams = {}): Promise<UserManageResponse> {
     try {
-      const response = await api.post(`/admin/users/${userId}/unmute`, params);
+      const response = await api.put(`/admin/users/${userId}/unmute`, params);
       return response.data;
     } catch (error: any) {
       console.error('解除禁言失败:', error);
